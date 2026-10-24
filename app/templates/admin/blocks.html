@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Sperren · CourtSlot{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Platzsperren</h1>
+  <p class="muted">Für Wartung, Medenspiele oder Training. Gesperrte Slots sind nicht buchbar.</p>
+  <form method="post" action="/admin/sperren" class="inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <label>Platz
+      <select name="court_id">{% for c in courts if c.is_active %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
+    </label>
+    <label>Von <input type="datetime-local" name="start" step="3600" required></label>
+    <label>Bis <input type="datetime-local" name="end" step="3600" required></label>
+    <label>Grund <input name="reason" required placeholder="z. B. Medenspiel"></label>
+    <button type="submit" class="primary">Sperre anlegen</button>
+  </form>
+  <table class="list">
+    <thead><tr><th>Platz</th><th>Von</th><th>Bis</th><th>Grund</th><th></th></tr></thead>
+    <tbody>
+    {% for b in blocks %}
+      <tr>
+        <td>{{ b.court.name }}</td><td>{{ b.start_at | dt }}</td><td>{{ b.end_at | dt }}</td><td>{{ b.reason }}</td>
+        <td>
+          <form method="post" action="/admin/sperren/{{ b.id }}/loeschen">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <button type="submit">Aufheben</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="muted">Keine aktuellen Sperren.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Meine Buchungen · CourtSlot{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Meine Buchungen</h1>
+  <h2>Kommende</h2>
+  {% if upcoming %}
+  <table class="list">
+    <thead><tr><th>Termin</th><th>Platz</th><th></th></tr></thead>
+    <tbody>
+    {% for b in upcoming %}
+      <tr>
+        <td>{{ b.start_at | dt }}</td>
+        <td>{{ b.court.name }}</td>
+        <td>
+          <form method="post" action="/buchungen/{{ b.id }}/storno" onsubmit="return confirm('Buchung stornieren?')">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <input type="hidden" name="back" value="/meine-buchungen">
+            <button type="submit" class="danger">Stornieren</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="muted">Keine kommenden Buchungen. <a href="/kalender">Zum Kalender</a></p>{% endif %}
+  <h2>Vergangene</h2>
+  {% if past %}
+  <table class="list">
+    <thead><tr><th>Termin</th><th>Platz</th></tr></thead>
+    <tbody>{% for b in past %}<tr><td>{{ b.start_at | dt }}</td><td>{{ b.court.name }}</td></tr>{% endfor %}</tbody>
+  </table>
+  {% else %}<p class="muted">Noch keine vergangenen Buchungen.</p>{% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,76 @@
+{% if oob %}<div id="flashes" hx-swap-oob="true">{% include "_flashes.html" %}</div>{% endif %}
+<section id="week" class="week">
+  <div class="week-head">
+    <div>
+      <h1>{{ club.name }}</h1>
+      <p class="muted">Woche vom {{ monday | day }} bis {{ (days[-1].day) | day }} · Du hast {{ active_count }} von {{ club.max_active_bookings }} aktiven Buchungen · Buchbar bis {{ club.max_days_ahead }} Tage im Voraus</p>
+    </div>
+    <nav class="week-nav" aria-label="Woche wechseln">
+      <a href="/kalender?start={{ prev_week.isoformat() }}" hx-get="/kalender?start={{ prev_week.isoformat() }}" hx-select="#week" hx-target="#week" hx-swap="outerHTML" hx-push-url="true">← Vorwoche</a>
+      <a href="/kalender" hx-get="/kalender" hx-select="#week" hx-target="#week" hx-swap="outerHTML" hx-push-url="true">Heute</a>
+      <a href="/kalender?start={{ next_week.isoformat() }}" hx-get="/kalender?start={{ next_week.isoformat() }}" hx-select="#week" hx-target="#week" hx-swap="outerHTML" hx-push-url="true">Nächste Woche →</a>
+    </nav>
+  </div>
+  <ul class="legend" aria-label="Legende">
+    <li><span class="dot free"></span>frei</li>
+    <li><span class="dot own"></span>deine Buchung</li>
+    <li><span class="dot booked"></span>belegt</li>
+    <li><span class="dot blocked"></span>gesperrt</li>
+  </ul>
+  {% if not courts %}<p class="card">Für diesen Verein sind noch keine Plätze angelegt.</p>{% endif %}
+  <div class="days">
+    {% for d in days %}
+    <article class="day{% if d.day == today %} today{% endif %}">
+      <h2>{{ d.day | day }}{% if d.day == today %} · heute{% endif %}</h2>
+      <table class="grid">
+        <thead><tr><th scope="col">Uhr</th>{% for c in courts %}<th scope="col" title="{{ sport_label(c.sport) }}{% if c.surface %}, {{ c.surface }}{% endif %}">{{ c.name }}</th>{% endfor %}</tr></thead>
+        <tbody>
+        {% for hour, cells in d.rows %}
+          <tr>
+            <th scope="row">{{ '%02d' % hour }}</th>
+            {% for cell in cells %}
+            <td class="cell {{ cell.state }}{% if cell.is_past %} is-past{% endif %}">
+              {% if cell.state == "free" %}
+              <form method="post" action="/buchungen" hx-post="/buchungen" hx-target="#week" hx-swap="outerHTML"
+                    hx-confirm="{{ cell.court.name }} am {{ d.day | day }} um {{ '%02d' % hour }}:00 Uhr buchen?">
+                <input type="hidden" name="csrf_token" value="{{ csrf }}">
+                <input type="hidden" name="court_id" value="{{ cell.court.id }}">
+                <input type="hidden" name="start" value="{{ cell.start.isoformat() }}">
+                <button type="submit" aria-label="{{ cell.court.name }} {{ '%02d' % hour }} Uhr buchen">frei</button>
+              </form>
+              {% elif cell.state == "own" and cell.is_past %}
+              <span title="Deine vergangene Buchung">Du</span>
+              {% elif cell.state == "own" %}
+              <form method="post" action="/buchungen/{{ cell.booking_id }}/storno" hx-post="/buchungen/{{ cell.booking_id }}/storno" hx-target="#week" hx-swap="outerHTML"
+                    hx-confirm="Buchung {{ cell.court.name }} am {{ d.day | day }} um {{ '%02d' % hour }}:00 Uhr stornieren?">
+                <input type="hidden" name="csrf_token" value="{{ csrf }}">
+                <input type="hidden" name="back" value="/kalender?start={{ monday.isoformat() }}">
+                <button type="submit" aria-label="Eigene Buchung stornieren">Du</button>
+              </form>
+              {% elif cell.state == "booked" %}
+              <span title="{{ cell.label }}">{{ cell.label if user.is_admin else "belegt" }}</span>
+              {% elif cell.state == "blocked" %}
+              <span title="Gesperrt: {{ cell.label }}">gesperrt</span>
+              {% else %}
+              <span aria-label="nicht buchbar"></span>
+              {% endif %}
+            </td>
+            {% endfor %}
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+<script>
+  // Auf dem Smartphone direkt zum heutigen Tag springen.
+  (function () {
+    var today = document.querySelector(".day.today");
+    if (today && window.innerWidth < 600 && !window.__courtslotScrolled) {
+      window.__courtslotScrolled = true;
+      today.scrollIntoView({ block: "start" });
+    }
+  })();
+</script>

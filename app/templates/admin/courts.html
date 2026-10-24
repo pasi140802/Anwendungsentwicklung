@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Plätze · CourtSlot{% endblock %}
+{% block content %}
+<section class="card">
+  <h1>Plätze</h1>
+  <form method="post" action="/admin/plaetze" class="inline-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <label>Name <input name="name" required placeholder="z. B. Platz 5"></label>
+    <label>Sportart
+      <select name="sport"><option value="tennis">Tennis</option><option value="padel">Padel</option></select>
+    </label>
+    <label>Belag <input name="surface" placeholder="z. B. Sand"></label>
+    <button type="submit" class="primary">Platz anlegen</button>
+  </form>
+  <table class="list">
+    <thead><tr><th>Name</th><th>Sportart</th><th>Belag</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+    {% for c in courts %}
+      <tr>
+        <td colspan="3">
+          <form method="post" action="/admin/plaetze" class="row-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <input type="hidden" name="court_id" value="{{ c.id }}">
+            <input name="name" value="{{ c.name }}" aria-label="Name" required>
+            <select name="sport" aria-label="Sportart">
+              <option value="tennis" {% if c.sport == "tennis" %}selected{% endif %}>Tennis</option>
+              <option value="padel" {% if c.sport == "padel" %}selected{% endif %}>Padel</option>
+            </select>
+            <input name="surface" value="{{ c.surface }}" aria-label="Belag">
+            <button type="submit">Speichern</button>
+          </form>
+        </td>
+        <td>{{ "aktiv" if c.is_active else "deaktiviert" }}</td>
+        <td>
+          <form method="post" action="/admin/plaetze/{{ c.id }}/aktiv">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <input type="hidden" name="active" value="{{ 'false' if c.is_active else 'true' }}">
+            <button type="submit">{{ "Deaktivieren" if c.is_active else "Aktivieren" }}</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

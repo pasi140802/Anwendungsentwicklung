@@ -1,0 +1,38 @@
+# Start des Prototyps mit einem Befehl (NFA-10):  docker compose up --build
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: courtslot
+      POSTGRES_PASSWORD: courtslot
+      POSTGRES_DB: courtslot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U courtslot"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  seed:
+    build: .
+    command: ["python", "-m", "scripts.seed"]
+    environment:
+      DATABASE_URL: postgresql+psycopg://courtslot:courtslot@db:5432/courtslot
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql+psycopg://courtslot:courtslot@db:5432/courtslot
+      SECRET_KEY: ${SECRET_KEY:-lokaler-demo-schluessel-bitte-aendern}
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+volumes:
+  pgdata:

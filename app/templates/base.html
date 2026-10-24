@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}CourtSlot{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="/static/htmx.min.js" defer></script>
+</head>
+<body hx-headers='{"X-CSRF-Token": "{{ csrf }}"}'>
+  <header class="topbar">
+    <a class="brand" href="/kalender">CourtSlot</a>
+    {% if user %}
+    <nav>
+      <a href="/kalender">Kalender</a>
+      <a href="/meine-buchungen">Meine Buchungen</a>
+      {% if user.is_admin %}
+      <a href="/admin/plaetze">Plätze</a>
+      <a href="/admin/sperren">Sperren</a>
+      <a href="/admin/mitglieder">Mitglieder</a>
+      <a href="/admin/regeln">Regeln</a>
+      <a href="/admin/auslastung">Auslastung</a>
+      {% endif %}
+    </nav>
+    <form method="post" action="/logout" class="logout">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <span class="who">{{ user.name }}{% if user.is_admin %} · Admin{% endif %}</span>
+      <button type="submit" class="link">Abmelden</button>
+    </form>
+    {% endif %}
+  </header>
+  <main>
+    <div id="flashes">{% include "_flashes.html" %}</div>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
