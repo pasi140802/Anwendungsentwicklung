@@ -1,0 +1,44 @@
+@startuml zielbetrieb
+title CourtSlot – Zielbetrieb (Verteilungssicht)
+skinparam shadowing false
+skinparam ArrowColor #13261F
+skinparam defaultFontName Arial
+skinparam node {
+  BorderColor #13261F
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #13261F
+  BackgroundColor #FFFFFF
+}
+skinparam databaseBorderColor #13261F
+skinparam databaseBackgroundColor #FFFFFF
+skinparam cloudBorderColor #13261F
+skinparam actorBorderColor #13261F
+skinparam actorBackgroundColor #FFFFFF
+
+actor "Nutzer" as U
+cloud "GitHub" as GH {
+  rectangle "Repository\n+ GitHub Actions\n(Lint, Tests, Image-Build)" as CI
+}
+
+node "IONOS Cloud, Rechenzentrum Frankfurt" as DC {
+  node "Managed Kubernetes" as K8S {
+    rectangle "Ingress-Controller\nTLS (Let's Encrypt)" as ING
+    rectangle "Deployment courtslot-web\n3 Pods à 2 Worker\nzustandslos, Autoscaling" as WEB #F6F5EF
+    rectangle "Monitoring\nPrometheus + Grafana,\nAlarmierung" as MON
+  }
+  database "Managed PostgreSQL\n(IONOS DBaaS)\nSLA 99,95 %" as PG
+  rectangle "Container-Registry" as REG
+  rectangle "Objektspeicher\nverschlüsselte Backups" as S3
+}
+
+U --> ING : HTTPS 443
+ING --> WEB : HTTP
+WEB --> PG : TLS 5432
+PG ..> S3 : tägliche Sicherung
+MON ..> WEB : Metriken
+MON ..> PG : Metriken
+CI --> REG : Image pushen
+REG --> WEB : Image ziehen\n(Rolling Update)
+@enduml

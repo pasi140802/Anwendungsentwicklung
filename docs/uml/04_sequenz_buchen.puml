@@ -1,0 +1,52 @@
+@startuml sequenz_buchen
+title CourtSlot – Sequenzdiagramm „Slot buchen“
+skinparam shadowing false
+skinparam ArrowColor #13261F
+skinparam defaultFontName Arial
+skinparam sequenceParticipantBorderColor #13261F
+skinparam sequenceLifeLineBorderColor #5A6660
+skinparam actorBorderColor #13261F
+skinparam actorBackgroundColor #FFFFFF
+skinparam databaseBackgroundColor #FFFFFF
+skinparam databaseBorderColor #13261F
+skinparam sequenceParticipantBackgroundColor #FFFFFF
+autonumber
+
+actor Mitglied
+participant "Browser\n(HTMX)" as B
+participant "Route\nPOST /buchungen" as R
+participant "BookingService\nbook_slot()" as S
+database "PostgreSQL" as DB
+
+Mitglied -> B : freien Slot anklicken, bestätigen
+B -> R : POST court_id, start, CSRF-Token
+R -> R : CSRF-Token und Sitzung prüfen
+R -> S : book_slot(user, court_id, start)
+S -> DB : Platz und Verein laden
+S -> S : Regeln prüfen\n(volle Stunde, Öffnungszeit,\nZukunft, Vorlauf, Platz aktiv)
+alt Regel verletzt
+  S --> R : BookingError(Grund)
+else Regeln erfüllt
+  S -> DB : SELECT … FROM users WHERE id = ? FOR UPDATE
+  note right : sperrt parallele Anfragen\ndesselben Mitglieds
+  S -> DB : aktive Buchungen zählen
+  S -> DB : überlappende Sperre suchen
+  alt Höchstzahl erreicht oder Platz gesperrt
+    S -> DB : ROLLBACK
+    S --> R : BookingError(Grund)
+  else
+    S -> DB : INSERT INTO bookings (…)
+    alt Unique-Index verletzt (Slot gerade vergeben)
+      DB --> S : IntegrityError
+      S -> DB : ROLLBACK
+      S --> R : BookingError("Slot gerade vergeben")
+    else
+      S -> DB : COMMIT
+      S --> R : Buchung
+    end
+  end
+end
+R -> R : Meldung setzen,\nWochenansicht rendern
+R --> B : HTML-Fragment #week + Meldung
+B --> Mitglied : aktualisierter Kalender
+@enduml

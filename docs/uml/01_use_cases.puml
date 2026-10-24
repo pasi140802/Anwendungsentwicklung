@@ -1,0 +1,45 @@
+@startuml use_cases
+title CourtSlot – Use-Case-Diagramm
+left to right direction
+skinparam shadowing false
+skinparam ArrowColor #13261F
+skinparam defaultFontName Arial
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #FFFFFF
+  BorderColor #13261F
+}
+skinparam actorBorderColor #13261F
+
+actor "Mitglied" as M
+actor "Admin\n(Platzwart)" as A
+A -|> M
+
+rectangle "CourtSlot" {
+  usecase "Anmelden" as UC1
+  usecase "Belegung der Woche ansehen" as UC2
+  usecase "Slot buchen" as UC3
+  usecase "Buchungsregeln prüfen" as UC3a
+  usecase "Buchung stornieren" as UC4
+  usecase "Eigene Buchungen ansehen" as UC5
+  usecase "Mitglieder verwalten" as UC6
+  usecase "Plätze verwalten" as UC7
+  usecase "Platz sperren" as UC8
+  usecase "Betroffene Buchungen\nstornieren" as UC8a
+  usecase "Buchungsregeln festlegen" as UC9
+  usecase "Auslastung ansehen" as UC10
+}
+
+M --> UC1
+M --> UC2
+M --> UC3
+M --> UC4
+M --> UC5
+UC3 ..> UC3a : <<include>>
+A --> UC6
+A --> UC7
+A --> UC8
+A --> UC9
+A --> UC10
+UC8a .> UC8 : <<extend>>
+@enduml

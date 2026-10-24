@@ -1,0 +1,28 @@
+@startuml c4_container
+title CourtSlot – Container (C4 Ebene 2)
+skinparam shadowing false
+skinparam ArrowColor #13261F
+skinparam defaultFontName Arial
+skinparam rectangle {
+  BorderColor #13261F
+  BackgroundColor #FFFFFF
+}
+skinparam databaseBorderColor #13261F
+skinparam databaseBackgroundColor #FFFFFF
+skinparam actorBorderColor #13261F
+skinparam actorBackgroundColor #FFFFFF
+
+actor "Mitglied / Admin" as U
+
+rectangle "CourtSlot" as SYS {
+  rectangle "Browser-Oberfläche\n[HTML, CSS, HTMX]\n\nWochenkalender, Formulare;\nlädt Teilansichten nach" as UI
+  rectangle "Web-Anwendung\n[Python 3.13, FastAPI, Jinja2]\n\nRouten, Sitzung, CSRF, Rollen;\nBookingService und AdminService\nmit allen Buchungsregeln" as APP #F6F5EF
+  database "Datenbank\n[PostgreSQL 16]\n\nVereine, Benutzer, Plätze,\nBuchungen, Sperren;\nUnique-Index gegen Doppelbuchung" as DB
+  rectangle "Demo-Daten-Skript\n[Python]\n\nlegt Beispielverein an" as SEED
+}
+
+U --> UI : HTTPS
+UI --> APP : HTTP-Anfragen\n(HTML-Fragmente zurück)
+APP --> DB : SQL über psycopg\n(Transaktionen, Sperren)
+SEED --> DB : SQL
+@enduml

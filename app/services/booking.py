@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.config import SLOT_MINUTES, TZ
 from app.models import Block, Booking, BookingStatus, Club, Court, User
@@ -197,20 +197,23 @@ def build_week(db: Session, user: User, monday: date, now: datetime | None = Non
     ).all()
     start = datetime.combine(monday, datetime.min.time(), TZ)
     end = start + timedelta(days=7)
-    bookings = db.scalars(
-        select(Booking).where(
-            Booking.club_id == user.club_id,
-            Booking.status == BookingStatus.CONFIRMED,
-            Booking.start_at >= start,
-            Booking.start_at < end,
-        )
-    ).all()
+    query = select(Booking).where(
+        Booking.club_id == user.club_id,
+        Booking.status == BookingStatus.CONFIRMED,
+        Booking.start_at >= start,
+        Booking.start_at < end,
+    )
+    if user.is_admin:  # Admins sehen Namen: Benutzer in einer Abfrage mitladen (kein N+1)
+        query = query.options(selectinload(Booking.user))
+    bookings = db.scalars(query).all()
     by_slot = {(b.court_id, b.start_at.astimezone(TZ)): b for b in bookings}
-    blocks = db.scalars(
+    blocks_by_court: dict[int, list[Block]] = {}
+    for block in db.scalars(
         select(Block).where(
             Block.club_id == user.club_id, Block.start_at < end, Block.end_at > start
         )
-    ).all()
+    ):
+        blocks_by_court.setdefault(block.court_id, []).append(block)
     last_day = now.astimezone(TZ).date() + timedelta(days=club.max_days_ahead)
 
     days = []
@@ -221,7 +224,8 @@ def build_week(db: Session, user: User, monday: date, now: datetime | None = Non
             slot = datetime(day.year, day.month, day.day, hour, tzinfo=TZ)
             cells = []
             for court in courts:
-                cells.append(_cell(court, slot, now, last_day, by_slot, blocks, user))
+                cells.append(_cell(court, slot, now, last_day, by_slot,
+                                   blocks_by_court.get(court.id, ()), user))
             view.rows.append((hour, cells))
         days.append(view)
     return courts, days
@@ -236,7 +240,7 @@ def _cell(court, slot, now, last_day, by_slot, blocks, user) -> Cell:
         label = booking.user.name if user.is_admin else "Belegt"
         return Cell(court, slot, "booked", label, booking.id, is_past)
     for block in blocks:
-        if block.court_id == court.id and block.start_at < slot_end(slot) and block.end_at > slot:
+        if block.start_at < slot_end(slot) and block.end_at > slot:
             return Cell(court, slot, "blocked", block.reason, is_past=is_past)
     if is_past:
         return Cell(court, slot, "past", is_past=True)

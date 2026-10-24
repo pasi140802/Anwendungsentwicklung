@@ -1,5 +1,5 @@
 {% if oob %}<div id="flashes" hx-swap-oob="true">{% include "_flashes.html" %}</div>{% endif %}
-<section id="week" class="week">
+<section id="week" class="week" hx-target="#week" hx-swap="outerHTML">
   <div class="week-head">
     <div>
       <h1>{{ club.name }}</h1>
@@ -31,13 +31,9 @@
             {% for cell in cells %}
             <td class="cell {{ cell.state }}{% if cell.is_past %} is-past{% endif %}">
               {% if cell.state == "free" %}
-              <form method="post" action="/buchungen" hx-post="/buchungen" hx-target="#week" hx-swap="outerHTML"
-                    hx-confirm="{{ cell.court.name }} am {{ d.day | day }} um {{ '%02d' % hour }}:00 Uhr buchen?">
-                <input type="hidden" name="csrf_token" value="{{ csrf }}">
-                <input type="hidden" name="court_id" value="{{ cell.court.id }}">
-                <input type="hidden" name="start" value="{{ cell.start.isoformat() }}">
-                <button type="submit" aria-label="{{ cell.court.name }} {{ '%02d' % hour }} Uhr buchen">frei</button>
-              </form>
+              <button hx-post="/buchungen" hx-vals='{"court_id": {{ cell.court.id }}, "start": "{{ cell.start.isoformat() }}"}'
+                      hx-confirm="{{ cell.court.name }} am {{ d.day | day }} um {{ '%02d' % hour }}:00 Uhr buchen?"
+                      aria-label="{{ cell.court.name }} {{ '%02d' % hour }} Uhr buchen">frei</button>
               {% elif cell.state == "own" and cell.is_past %}
               <span title="Deine vergangene Buchung">Du</span>
               {% elif cell.state == "own" %}

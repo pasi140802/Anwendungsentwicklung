@@ -1,0 +1,83 @@
+@startuml datenmodell
+title CourtSlot – Datenmodell (PostgreSQL)
+skinparam shadowing false
+skinparam ArrowColor #13261F
+skinparam defaultFontName Arial
+skinparam classBackgroundColor #FFFFFF
+skinparam classBorderColor #13261F
+hide circle
+hide methods
+
+entity clubs {
+  * id : serial <<PK>>
+  --
+  name : varchar(120)
+  max_active_bookings : int (1–20)
+  max_days_ahead : int (1–60)
+  open_hour : int
+  close_hour : int
+}
+
+entity users {
+  * id : serial <<PK>>
+  --
+  * club_id : int <<FK>>
+  email : varchar(254) <<unique>>
+  name : varchar(120)
+  password_hash : varchar(255)
+  role : enum(member, admin)
+  is_active : bool
+  is_removed : bool
+  created_at : timestamptz
+}
+
+entity courts {
+  * id : serial <<PK>>
+  --
+  * club_id : int <<FK>>
+  name : varchar(60)
+  sport : enum(tennis, padel)
+  surface : varchar(60)
+  is_active : bool
+}
+
+entity bookings {
+  * id : serial <<PK>>
+  --
+  * club_id : int <<FK>>
+  * court_id : int <<FK>>
+  * user_id : int <<FK>>
+  start_at : timestamptz
+  end_at : timestamptz
+  status : enum(confirmed, cancelled)
+  created_at : timestamptz
+  cancelled_at : timestamptz
+  cancelled_by_id : int <<FK>>
+}
+
+entity blocks {
+  * id : serial <<PK>>
+  --
+  * club_id : int <<FK>>
+  * court_id : int <<FK>>
+  start_at : timestamptz
+  end_at : timestamptz
+  reason : varchar(120)
+  * created_by_id : int <<FK>>
+}
+
+clubs ||--o{ users
+clubs ||--o{ courts
+clubs ||--o{ bookings
+clubs ||--o{ blocks
+courts ||--o{ bookings
+users ||--o{ bookings
+courts ||--o{ blocks
+users ||--o{ blocks
+
+note right of bookings
+  UNIQUE INDEX uq_booking_court_slot_confirmed
+  ON bookings (court_id, start_at)
+  WHERE status = 'confirmed'
+end note
+@enduml

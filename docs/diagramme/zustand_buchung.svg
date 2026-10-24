@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" contentScriptType="application/ecmascript" contentStyleType="text/css" height="440px" preserveAspectRatio="none" style="width:820px;height:440px;" version="1.1" viewBox="0 0 820 440" width="820px" zoomAndPan="magnify"><defs/><g><text fill="#000000" font-family="Arial" font-size="18" lengthAdjust="spacingAndGlyphs" textLength="395" x="215.5" y="17.4375">CourtSlot - Zustandsdiagramm einer Buchung</text><ellipse cx="422.5" cy="39.7793" fill="#000000" rx="10" ry="10" style="stroke: none; stroke-width: 1.0;"/><rect fill="#FFFFFF" height="40" rx="12.5" ry="12.5" style="stroke: #13261F; stroke-width: 1.5;" width="69" x="388" y="158.7793"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="59" x="393" y="183.8721">Bestätigt</text><rect fill="#FFFFFF" height="40" rx="12.5" ry="12.5" style="stroke: #13261F; stroke-width: 1.5;" width="66" x="527.5" y="300.2793"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="56" x="532.5" y="325.3721">Storniert</text><rect fill="#FFFFFF" height="40" rx="12.5" ry="12.5" style="stroke: #13261F; stroke-width: 1.5;" width="105" x="6" y="300.2793"/><text fill="#000000" font-family="Arial" font-size="14" lengthAdjust="spacingAndGlyphs" textLength="95" x="11" y="325.3721">Stattgefunden</text><ellipse cx="308.5" cy="419.7793" fill="none" rx="10" ry="10" style="stroke: #000000; stroke-width: 1.0;"/><ellipse cx="309" cy="420.2793" fill="#000000" rx="6" ry="6" style="stroke: none; stroke-width: 1.0;"/><path d="M146.5,291.7793 L146.5,316.2793 L111.01,320.2793 L146.5,324.2793 L146.5,348.9678 A0,0 0 0 0 146.5,348.9678 L492.5,348.9678 A0,0 0 0 0 492.5,348.9678 L492.5,301.7793 L482.5,291.7793 L146.5,291.7793 A0,0 0 0 0 146.5,291.7793 " fill="#FBFB77" style="stroke: #A80036; stroke-width: 1.0;"/><path d="M482.5,291.7793 L482.5,301.7793 L492.5,301.7793 L482.5,291.7793 " fill="#FBFB77" style="stroke: #A80036; stroke-width: 1.0;"/><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="227" x="152.5" y="309.373">Wird nicht gespeichert, sondern aus</text><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="325" x="152.5" y="325.1025">status = CONFIRMED und startAt &lt;= jetzt abgeleitet.</text><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="225" x="152.5" y="340.832">Zählt nicht mehr als aktive Buchung.</text><path d="M629,307.2793 L629,316.2793 L593.52,320.2793 L629,324.2793 L629,333.0088 A0,0 0 0 0 629,333.0088 L808,333.0088 A0,0 0 0 0 808,333.0088 L808,317.2793 L798,307.2793 L629,307.2793 A0,0 0 0 0 629,307.2793 " fill="#FBFB77" style="stroke: #A80036; stroke-width: 1.0;"/><path d="M798,307.2793 L798,317.2793 L808,317.2793 L798,307.2793 " fill="#FBFB77" style="stroke: #A80036; stroke-width: 1.0;"/><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="158" x="635" y="324.873">Slot ist sofort wieder frei.</text><!--link *start to Bestaetigt--><path d="M422.5,50.1993 C422.5,71.2293 422.5,122.5793 422.5,153.3393 " fill="none" id="*start-Bestaetigt" style="stroke: #13261F; stroke-width: 1.0;"/><polygon fill="#13261F" points="422.5,158.4593,426.5,149.4593,422.5,153.4593,418.5,149.4593,422.5,158.4593" style="stroke: #13261F; stroke-width: 1.0;"/><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="47" x="474" y="93.373">buchen</text><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="148" x="423.5" y="109.1025">[Slot frei, Regeln erfüllt,</text><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="125" x="435" y="124.832">Platz nicht gesperrt]</text><!--link Bestaetigt to Storniert--><path d="M387.79,185.3993 C362.72,191.4693 330.56,203.8593 314.5,228.7793 C306.56,241.1093 304.95,250.6493 314.5,261.7793 C343.05,295.0593 467.93,277.8393 509.5,291.7793 C514.54,293.4693 519.67,295.6293 524.64,297.9993 " fill="none" id="Bestaetigt-Storniert" style="stroke: #13261F; stroke-width: 1.0;"/><polygon fill="#13261F" points="529.15,300.2293,522.8503,292.6587,524.6665,298.0161,519.3091,299.8324,529.15,300.2293" style="stroke: #13261F; stroke-width: 1.0;"/><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="168" x="315.5" y="242.373">stornieren [vor Slotbeginn]</text><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="135" x="332" y="258.1025">(Mitglied oder Admin)</text><!--link Bestaetigt to Storniert--><path d="M451.73,198.9993 C463.69,207.4793 477.32,217.9693 488.5,228.7793 C509.97,249.5393 530.8,276.7293 544.48,295.8693 " fill="none" id="Bestaetigt-Storniert-1" style="stroke: #13261F; stroke-width: 1.0;"/><polygon fill="#13261F" points="547.46,300.0693,545.5191,290.4136,544.5687,295.99,538.9923,295.0396,547.46,300.0693" style="stroke: #13261F; stroke-width: 1.0;"/><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="99" x="519.5" y="250.373">Sperre bestätigt</text><!--link Bestaetigt to Storniert--><path d="M457.08,182.9593 C509.87,188.5993 606.64,202.3493 627.5,228.7793 C645.47,251.5593 620.09,278.3393 595.58,296.8293 " fill="none" id="Bestaetigt-Storniert-2" style="stroke: #13261F; stroke-width: 1.0;"/><polygon fill="#13261F" points="591.34,299.9493,600.9621,297.8482,595.3707,296.9906,596.2282,291.3991,591.34,299.9493" style="stroke: #13261F; stroke-width: 1.0;"/><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="106" x="635.5" y="242.373">Mitglied gesperrt</text><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="83" x="647" y="258.1025">oder entfernt</text><!--link Bestaetigt to Stattgefunden--><path d="M387.8,182.0393 C339.47,186.2393 250.01,197.8193 180.5,228.7793 C142.7,245.6193 105.4,275.8193 82.19,296.6693 " fill="none" id="Bestaetigt-Stattgefunden" style="stroke: #13261F; stroke-width: 1.0;"/><polygon fill="#13261F" points="78.31,300.1893,87.6566,297.0842,82.0058,296.8217,82.2684,291.1709,78.31,300.1893" style="stroke: #13261F; stroke-width: 1.0;"/><text fill="#000000" font-family="Arial" font-size="13" lengthAdjust="spacingAndGlyphs" textLength="118" x="181.5" y="250.373">Slotbeginn erreicht</text><!--link Storniert to *end--><path d="M527.41,340.0993 C521.53,343.1693 515.39,346.1893 509.5,348.7793 C441.45,378.7493 356.18,404.8593 322.82,414.6493 " fill="none" id="Storniert-*end" style="stroke: #13261F; stroke-width: 1.0;"/><polygon fill="#13261F" points="317.92,416.0893,327.68,417.4093,322.72,414.6893,325.44,409.7293,317.92,416.0893" style="stroke: #13261F; stroke-width: 1.0;"/><!--link Stattgefunden to *end--><path d="M107.07,340.3893 C114.25,343.1993 121.57,346.0693 128.5,348.7793 C190.49,373.0093 264.58,401.7593 294.73,413.4393 " fill="none" id="Stattgefunden-*end" style="stroke: #13261F; stroke-width: 1.0;"/><polygon fill="#13261F" points="299.51,415.2893,292.5759,408.2952,294.8511,413.4743,289.6719,415.7495,299.51,415.2893" style="stroke: #13261F; stroke-width: 1.0;"/><!--
+@startuml zustand_buchung
+title CourtSlot - Zustandsdiagramm einer Buchung
+skinparam shadowing false
+skinparam ArrowColor #13261F
+skinparam defaultFontName Arial
+skinparam state {
+  BackgroundColor #FFFFFF
+  BorderColor #13261F
+}
+hide empty description
+
+[*] - -> Bestaetigt : buchen\n[Slot frei, Regeln erfüllt,\nPlatz nicht gesperrt]
+
+state "Bestätigt" as Bestaetigt
+state "Storniert" as Storniert
+state "Stattgefunden" as Stattgefunden
+
+Bestaetigt - -> Storniert : stornieren [vor Slotbeginn]\n(Mitglied oder Admin)
+Bestaetigt - -> Storniert : Sperre bestätigt
+Bestaetigt - -> Storniert : Mitglied gesperrt\noder entfernt
+Bestaetigt - -> Stattgefunden : Slotbeginn erreicht
+
+Storniert - -> [*]
+Stattgefunden - -> [*]
+
+note right of Stattgefunden
+  Wird nicht gespeichert, sondern aus
+  status = CONFIRMED und startAt <= jetzt abgeleitet.
+  Zählt nicht mehr als aktive Buchung.
+end note
+note right of Storniert
+  Slot ist sofort wieder frei.
+end note
+@enduml
+
+PlantUML version 1.2019.06(Fri May 24 19:10:25 CEST 2019)
+(GPL source distribution)
+Java Runtime: OpenJDK Runtime Environment
+JVM: OpenJDK 64-Bit Server VM
+Java Version: 21.0.12.1+1-1-24.04.4-Ubuntu
+Operating System: Linux
+OS Version: 6.18.44-fc-v153
+Default Encoding: UTF-8
+Language: en
+Country: US
+--></g></svg>

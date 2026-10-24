@@ -1,0 +1,30 @@
+@startuml c4_kontext
+title CourtSlot – Systemkontext (C4 Ebene 1)
+skinparam shadowing false
+skinparam ArrowColor #13261F
+skinparam defaultFontName Arial
+skinparam rectangle {
+  BorderColor #13261F
+}
+skinparam rectangle<<system>> {
+  BackgroundColor #13261F
+  FontColor #F6F5EF
+  StereotypeFontColor #13261F
+}
+hide stereotype
+skinparam actorBorderColor #13261F
+skinparam actorBackgroundColor #FFFFFF
+
+actor "Mitglied\n[Person]\nsieht Belegung, bucht\nund storniert Slots" as M
+actor "Platzwart / Admin\n[Person]\nverwaltet Plätze, Sperren,\nRegeln und Mitglieder" as A
+
+rectangle "CourtSlot\n[Software-System]\n\nmandantenfähige Buchungsplattform\nfür Tennis- und Padelvereine" <<system>> as CS
+
+rectangle "E-Mail-Dienst\n[externes System, Ausblick]\nBuchungsbestätigungen" as MAIL #ECEBE2
+rectangle "Vereinsverwaltung\n[externes System, Ausblick]\nMitgliederimport" as VV #ECEBE2
+
+M --> CS : nutzt per Browser\n(Smartphone/PC), HTTPS
+A --> CS : verwaltet per Browser, HTTPS
+CS ..> MAIL : sendet E-Mails\n(SMTP/API)
+VV ..> CS : liefert Mitgliederlisten\n(CSV/API)
+@enduml

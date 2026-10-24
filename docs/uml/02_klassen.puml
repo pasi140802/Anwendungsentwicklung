@@ -1,0 +1,76 @@
+@startuml klassen
+title CourtSlot – Klassendiagramm (Domänenmodell)
+skinparam shadowing false
+skinparam ArrowColor #13261F
+skinparam defaultFontName Arial
+skinparam classBackgroundColor #FFFFFF
+skinparam classBorderColor #13261F
+skinparam classAttributeIconSize 0
+hide empty methods
+
+enum Role {
+  MEMBER
+  ADMIN
+}
+enum Sport {
+  TENNIS
+  PADEL
+}
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+}
+
+class Club as "Verein" {
+  name : String
+  maxActiveBookings : int = 2
+  maxDaysAhead : int = 7
+  openHour : int = 8
+  closeHour : int = 22
+}
+
+class User as "Benutzer" {
+  email : String {unique}
+  name : String
+  passwordHash : String
+  role : Role
+  isActive : bool
+  isRemoved : bool
+  + isAdmin() : bool
+}
+
+class Court as "Platz" {
+  name : String
+  sport : Sport
+  surface : String
+  isActive : bool
+}
+
+class Booking as "Buchung" {
+  startAt : DateTime
+  endAt : DateTime
+  status : BookingStatus
+  createdAt : DateTime
+  cancelledAt : DateTime [0..1]
+}
+
+class Block as "Sperre" {
+  startAt : DateTime
+  endAt : DateTime
+  reason : String
+}
+
+Club "1" *-- "0..*" User : hat Mitglieder
+Club "1" *-- "0..*" Court : besitzt
+User "1" -- "0..*" Booking : bucht >
+Court "1" -- "0..*" Booking : belegt <
+Court "1" -- "0..*" Block : sperrt <
+User "1" -- "0..*" Block : legt an >
+User "0..1" -- "0..*" Booking : storniert >
+
+note bottom of Booking
+  Invariante: je Platz und Startzeit
+  höchstens eine Buchung mit Status CONFIRMED
+  (partieller Unique-Index in der Datenbank)
+end note
+@enduml
