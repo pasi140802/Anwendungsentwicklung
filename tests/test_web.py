@@ -120,3 +120,68 @@ def test_tenant_isolation_over_http(client, world, db):
 
 def test_health(client):
     assert client.get("/health").json() == {"status": "ok"}
+
+
+def test_logout_invalidates_copied_cookie(client, world):
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    token = login(client, "lena@a.de")
+    stolen = dict(client.cookies)
+    client.post("/logout", data={"csrf_token": token})
+    with TestClient(app, cookies=stolen) as attacker:
+        r = attacker.get("/kalender", follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/login"
+
+
+def test_locked_member_session_ends(client, world, db):
+    from app.services.admin import set_member_active
+
+    login(client, "lena@a.de")
+    assert client.get("/kalender").status_code == 200
+    set_member_active(db, world["admin"], world["lena"].id, False)
+    r = client.get("/kalender", follow_redirects=False)
+    assert r.status_code == 303
+
+
+def test_invalid_start_is_handled(client, world):
+    token = login(client, "lena@a.de")
+    r = client.post("/buchungen", data={"court_id": world["court1"].id, "start": "kaputt",
+                                        "csrf_token": token})
+    assert r.status_code == 200 and "Ungültige Startzeit." in r.text
+
+
+def test_admin_unlock_self_is_handled(client, world):
+    token = login(client, "admin@a.de")
+    r = client.post(f"/admin/mitglieder/{world['admin'].id}/entsperren",
+                    data={"csrf_token": token})
+    assert r.status_code == 200 and "nicht selbst" in r.text
+
+
+def test_admin_cancels_member_booking_in_calendar(client, world, db):
+    from app.models import Booking, BookingStatus
+    from app.services.booking import book_slot
+
+    booking = book_slot(db, world["lena"], world["court1"].id, future_slot())
+    token = login(client, "admin@a.de")
+    page = client.get(f"/kalender?start={future_slot().date().isoformat()}").text
+    assert f'hx-post="/buchungen/{booking.id}/storno"' in page
+    r = client.post(f"/buchungen/{booking.id}/storno",
+                    data={"csrf_token": token, "back": "/kalender"},
+                    headers={"HX-Request": "true"})
+    assert "Storniert: Platz 1" in r.text
+    db.expire_all()
+    assert db.get(Booking, booking.id).status == BookingStatus.CANCELLED
+
+
+def test_block_reason_visible_in_calendar(client, world, db):
+    from app.models import Block
+
+    start = future_slot(1, 10)
+    db.add(Block(club_id=world["club"].id, court_id=world["court1"].id, start_at=start,
+                 end_at=future_slot(1, 12), reason="Medenspiel", created_by_id=world["admin"].id))
+    db.commit()
+    login(client, "lena@a.de")
+    page = client.get(f"/kalender?start={start.date().isoformat()}").text
+    assert '<span title="Gesperrt: Medenspiel">Medenspiel</span>' in page

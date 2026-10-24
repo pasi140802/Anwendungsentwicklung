@@ -75,6 +75,9 @@ table.grid tbody th { width: 30px; text-align: right; padding-right: 4px; }
 .cell.free button:hover, .cell.free button:focus-visible { background: #c9e4d3; outline: 2px solid var(--free-ink); }
 .cell.own button { background: var(--own); color: #fff; font-weight: 600; }
 .cell.booked { background: var(--booked); color: var(--muted); }
+.cell.booked button { background: var(--booked); color: var(--ink); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+.cell.booked button:hover, .cell.booked button:focus-visible { outline: 2px solid var(--accent); }
+.cell span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 2px; line-height: 30px; }
 .cell.blocked { background: repeating-linear-gradient(45deg, var(--blocked), var(--blocked) 5px, #fbf3e9 5px, #fbf3e9 10px); color: #7a4a1e; }
 .cell.past, .cell.later { background: #efeee7; }
 .cell.own.is-past { background: #d9b39f; color: #fff; font-weight: 600; }

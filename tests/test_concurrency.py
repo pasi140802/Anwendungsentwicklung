@@ -23,6 +23,7 @@ def _attempt(user_id: int, court_id: int, start) -> bool:
 
 
 def test_100_parallel_attempts_same_slot_one_wins(db, pw_hash, world):
+    """100 Mitglieder versuchen denselben Slot zu buchen, je 25 gleichzeitig."""
     users = [User(club_id=world["club"].id, name=f"M{i}", email=f"m{i}@a.de",
                   password_hash=pw_hash) for i in range(100)]
     db.add_all(users)

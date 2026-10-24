@@ -58,8 +58,11 @@ def lock_member(request: Request, user_id: int, db: Session = Depends(get_db),
 @router.post("/mitglieder/{user_id}/entsperren", dependencies=WRITE)
 def unlock_member(request: Request, user_id: int, db: Session = Depends(get_db),
                   admin: User = Depends(require_admin)):
-    svc.set_member_active(db, admin, user_id, active=True)
-    flash(request, "Mitglied entsperrt.")
+    try:
+        svc.set_member_active(db, admin, user_id, active=True)
+        flash(request, "Mitglied entsperrt.")
+    except BookingError as exc:
+        flash(request, str(exc), "error")
     return redirect("/admin/mitglieder")
 
 

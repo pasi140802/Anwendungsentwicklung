@@ -73,6 +73,8 @@ def set_member_active(db: Session, actor: User, user_id: int, active: bool,
     if user.id == actor.id:
         raise BookingError("Du kannst dich nicht selbst sperren.")
     user.is_active = active
+    if not active:
+        user.session_version += 1  # laufende Sitzungen beenden
     cancelled = 0 if active else cancel_future_bookings(db, user, actor, now)
     db.commit()
     return cancelled
@@ -91,6 +93,7 @@ def remove_member(db: Session, actor: User, user_id: int, now: datetime | None =
     cancelled = cancel_future_bookings(db, user, actor, now)
     user.is_active = False
     user.is_removed = True
+    user.session_version += 1
     user.name = "Entferntes Mitglied"
     user.email = f"entfernt-{user.id}@invalid.local"
     user.password_hash = hash_password(secrets.token_urlsafe(32))

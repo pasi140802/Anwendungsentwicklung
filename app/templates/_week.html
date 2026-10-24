@@ -43,10 +43,14 @@
                 <input type="hidden" name="back" value="/kalender?start={{ monday.isoformat() }}">
                 <button type="submit" aria-label="Eigene Buchung stornieren">Du</button>
               </form>
+              {% elif cell.state == "booked" and user.is_admin and not cell.is_past %}
+              <button hx-post="/buchungen/{{ cell.booking_id }}/storno" hx-vals='{"back": "/kalender?start={{ monday.isoformat() }}"}'
+                      hx-confirm="Buchung von {{ cell.label }} ({{ cell.court.name }}, {{ d.day | day }} {{ '%02d' % hour }}:00 Uhr) stornieren?"
+                      title="{{ cell.label }}" aria-label="Buchung von {{ cell.label }} stornieren">{{ cell.label }}</button>
               {% elif cell.state == "booked" %}
               <span title="{{ cell.label }}">{{ cell.label if user.is_admin else "belegt" }}</span>
               {% elif cell.state == "blocked" %}
-              <span title="Gesperrt: {{ cell.label }}">gesperrt</span>
+              <span title="Gesperrt: {{ cell.label }}">{{ cell.label }}</span>
               {% else %}
               <span aria-label="nicht buchbar"></span>
               {% endif %}

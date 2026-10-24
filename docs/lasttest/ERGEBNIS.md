@@ -15,6 +15,6 @@ Verlauf der Optimierung im Stresstest (ohne Denkzeit):
 | 2 Worker, Benutzer per `selectinload` in einer Abfrage | 93 | 892 ms |
 | zusätzlich schlankeres HTML für freie Slots | 97 | 758 ms |
 
-Bewertung: Unter realistischer Nutzung ist NFA-01 erfüllt. Im Stresstest begrenzen die 2 vCPU des Testrechners den Durchsatz auf rund 100 Anfragen/s (rund 18 ms Rechenzeit je Anfrage, Lastgenerator auf derselben Maschine). Im Zielbetrieb skaliert die zustandslose Anwendung horizontal über mehrere Pods; mit 3 Pods à 2 Workern liegt die rechnerische Kapazität beim Dreifachen.
+Bewertung: Unter realistischer Nutzung ist NFA-01 für den Kalenderaufruf erfüllt; die Buchung selbst wurde nicht unter Last gemessen. Im Stresstest begrenzen die 2 vCPU des Testrechners den Durchsatz auf rund 100 Anfragen/s. Eine Einzelmessung ohne Parallelität ergab rund 18 ms je Kalenderaufruf eines Mitglieds (rund 30 ms vor der N+1-Korrektur für Admins); daraus abgeleitet sind rund 50 Anfragen/s je Worker ein Planwert. Im Zielbetrieb skaliert die zustandslose Anwendung horizontal; geplant sind 4 Pods à 2 Worker.
 
 Wiederholen: `python docs/lasttest/lasttest.py http://localhost:8000 20 1` (Denkzeit 1 s) bzw. `… 20 0` (Stresstest).

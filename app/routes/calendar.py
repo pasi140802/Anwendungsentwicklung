@@ -51,7 +51,11 @@ def calendar(request: Request, start: str | None = None, db: Session = Depends(g
 @router.post("/buchungen", dependencies=[Depends(verify_csrf)])
 def create_booking(request: Request, court_id: int = Form(...), start: str = Form(...),
                    db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    slot = datetime.fromisoformat(start)
+    try:
+        slot = datetime.fromisoformat(start)
+    except ValueError:
+        flash(request, "Ungültige Startzeit.", "error")
+        return redirect("/kalender")
     if slot.tzinfo is None:
         slot = slot.replace(tzinfo=TZ)
     try:
