@@ -1,5 +1,6 @@
 """Hilfsfunktionen für die serverseitig gerenderte Oberfläche (Jinja2 + HTMX)."""
 
+import hashlib
 from datetime import date, datetime
 from pathlib import Path
 
@@ -11,6 +12,19 @@ from app.config import TZ
 from app.security import csrf_token
 
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+STATIC_DIR = Path(__file__).parent / "static"
+
+
+def _asset_version() -> str:
+    """Prüfsumme über CSS und JS: Nach jeder Änderung laden Browser die neuen Dateien."""
+    digest = hashlib.sha256()
+    for name in ("style.css", "app.js"):
+        digest.update((STATIC_DIR / name).read_bytes())
+    return digest.hexdigest()[:10]
+
+
+templates.env.globals["asset_v"] = _asset_version()
 
 WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
 WEEKDAYS_LONG = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]

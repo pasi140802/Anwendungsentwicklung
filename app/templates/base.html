@@ -8,9 +8,9 @@
   <meta name="theme-color" content="#1F4E9C">
   <title>{% block title %}CourtSlot{% endblock %}</title>
   <link rel="preload" href="/static/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/style.css">
+  <link rel="stylesheet" href="/static/style.css?v={{ asset_v }}">
   <script src="/static/htmx.min.js" defer></script>
-  <script src="/static/app.js" defer></script>
+  <script src="/static/app.js?v={{ asset_v }}" defer></script>
 </head>
 <body class="{{ 'has-user' if user else 'no-user' }}" hx-headers='{"X-CSRF-Token": "{{ csrf }}"}'>
   <a class="skip" href="#main">Zum Inhalt springen</a>
