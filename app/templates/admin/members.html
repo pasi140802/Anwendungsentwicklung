@@ -1,37 +1,42 @@
 {% extends "base.html" %}
-{% block title %}Mitglieder · CourtSlot{% endblock %}
+{% block title %}Mitglieder – CourtSlot{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>Mitglieder</h1>
-  <form method="post" action="/admin/mitglieder" class="inline-form">
+{% set active = "mitglieder" %}{% include "admin/_nav.html" %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>Mitglieder</h2>
+    <p>{{ members | length }} Personen. Neue Mitglieder erhalten ein Startpasswort, das nur einmal angezeigt wird.</p>
+  </div>
+  <form method="post" action="/admin/mitglieder" class="addbar">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
-    <label>Name <input name="name" required></label>
-    <label>E-Mail <input type="email" name="email" required></label>
-    <label>Rolle
+    <label class="field grow">Name <input name="name" required autocomplete="off"></label>
+    <label class="field grow">E-Mail-Adresse <input type="email" name="email" required autocomplete="off"></label>
+    <label class="field">Rolle
       <select name="role"><option value="member">Mitglied</option><option value="admin">Admin</option></select>
     </label>
-    <button type="submit" class="primary">Anlegen</button>
+    <button type="submit" class="btn btn-court">Mitglied anlegen</button>
   </form>
-  <table class="list">
-    <thead><tr><th>Name</th><th>E-Mail</th><th>Rolle</th><th>Status</th><th></th></tr></thead>
+  <table class="table">
+    <thead><tr><th>Name</th><th class="hide-sm">E-Mail-Adresse</th><th>Status</th><th class="actions"><span class="visually-hidden">Aktionen</span></th></tr></thead>
     <tbody>
     {% for m in members %}
       <tr>
-        <td>{{ m.name }}</td>
-        <td>{{ m.email }}</td>
-        <td>{{ "Admin" if m.is_admin else "Mitglied" }}</td>
-        <td>{{ "aktiv" if m.is_active else "gesperrt" }}</td>
+        <td><span class="person"><span class="avatar" aria-hidden="true">{{ m.name | initials }}</span><span>{{ m.name }}{% if m.is_admin %} <span class="badge">Admin</span>{% endif %}</span></span></td>
+        <td class="hide-sm muted">{{ m.email }}</td>
+        <td><span class="badge{% if not m.is_active %} badge-warn{% endif %}">{{ "aktiv" if m.is_active else "gesperrt" }}</span></td>
         <td class="actions">
           {% if m.id != user.id %}
-          <form method="post" action="/admin/mitglieder/{{ m.id }}/{{ 'sperren' if m.is_active else 'entsperren' }}">
+          <form method="post" action="/admin/mitglieder/{{ m.id }}/{{ 'sperren' if m.is_active else 'entsperren' }}"
+                {% if m.is_active %}data-confirm-title="{{ m.name }} sperren?" data-confirm-text="Kommende Buchungen werden storniert, laufende Sitzungen beendet." data-confirm-ok="Sperren" data-confirm-danger{% endif %}>
             <input type="hidden" name="csrf_token" value="{{ csrf }}">
-            <button type="submit">{{ "Sperren" if m.is_active else "Entsperren" }}</button>
+            <button type="submit" class="btn-text">{{ "Sperren" if m.is_active else "Entsperren" }}</button>
           </form>
-          <form method="post" action="/admin/mitglieder/{{ m.id }}/entfernen" onsubmit="return confirm('{{ m.name }} endgültig entfernen? Künftige Buchungen werden storniert.')">
+          <form method="post" action="/admin/mitglieder/{{ m.id }}/entfernen"
+                data-confirm-title="{{ m.name }} entfernen?" data-confirm-text="Name und E-Mail-Adresse werden gelöscht, kommende Buchungen storniert. Das lässt sich nicht rückgängig machen." data-confirm-ok="Endgültig entfernen" data-confirm-danger>
             <input type="hidden" name="csrf_token" value="{{ csrf }}">
-            <button type="submit" class="danger">Entfernen</button>
+            <button type="submit" class="btn-text danger">Entfernen</button>
           </form>
-          {% endif %}
+          {% else %}<span class="muted">Du</span>{% endif %}
         </td>
       </tr>
     {% endfor %}

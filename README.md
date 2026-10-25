@@ -69,6 +69,10 @@ ruff check app tests scripts
 
 Die CI-Pipeline (`.github/workflows/ci.yml`) führt bei jedem Push Linter und Tests gegen PostgreSQL aus und baut das Container-Image.
 
+## Oberfläche
+
+Eigenes Design in Hartplatzblau und Ballgelb mit der Schrift Archivo (lokal eingebunden, SIL Open Font License). Der Kalender zeigt eine Tagesleiste mit freien Slots je Tag; Buchen und Stornieren laufen über einen eigenen Bestätigungsdialog. Auf dem Smartphone gibt es eine Navigationsleiste am unteren Rand.
+
 ## Screenshots
 
 `docs/screenshots/` zeigt alle Ansichten, u. a. den Kalender bei 360 px Breite und den Admin-Bereich. Sie ersetzen im Projekt die Wireframes, weil die Oberfläche direkt als Prototyp entworfen wurde.

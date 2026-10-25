@@ -13,6 +13,9 @@ from app.security import csrf_token
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 WEEKDAYS = ["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"]
+WEEKDAYS_LONG = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+MONTHS = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
+          "September", "Oktober", "November", "Dezember"]
 SPORT_LABELS = {"tennis": "Tennis", "padel": "Padel"}
 
 
@@ -29,7 +32,19 @@ def fmt_time(dt: datetime) -> str:
     return f"{dt.astimezone(TZ):%H:%M}"
 
 
+def initials(name: str) -> str:
+    parts = name.split()
+    if not parts:
+        return "?"
+    return (parts[0][0] + (parts[-1][0] if len(parts) > 1 else "")).upper()
+
+
 templates.env.filters["day"] = fmt_day
+templates.env.filters["initials"] = initials
+templates.env.filters["weekday"] = lambda d: WEEKDAYS[d.weekday()]
+templates.env.filters["weekday_long"] = lambda d: WEEKDAYS_LONG[d.weekday()]
+templates.env.filters["month"] = lambda d: MONTHS[d.month - 1]
+templates.env.filters["local"] = lambda dt: dt.astimezone(TZ)
 templates.env.filters["dt"] = fmt_dt
 templates.env.filters["time"] = fmt_time
 templates.env.globals["sport_label"] = lambda s: SPORT_LABELS.get(str(s), str(s))

@@ -1,0 +1,17 @@
+{% from "_icons.html" import icon %}
+<header class="page-head">
+  <div>
+    <h1 class="display">Verwaltung</h1>
+    <p>{{ user.club.name }}</p>
+  </div>
+</header>
+<nav class="subnav" aria-label="Verwaltung">
+  {% for key, href, label, ic in [
+      ("plaetze", "/admin/plaetze", "Plätze", "court"),
+      ("sperren", "/admin/sperren", "Sperren", "lock"),
+      ("mitglieder", "/admin/mitglieder", "Mitglieder", "users"),
+      ("regeln", "/admin/regeln", "Regeln", "rules"),
+      ("auslastung", "/admin/auslastung", "Auslastung", "chart")] %}
+  <a href="{{ href }}" {% if active == key %}aria-current="page"{% endif %}>{{ icon(ic, 18) }}{{ label }}</a>
+  {% endfor %}
+</nav>

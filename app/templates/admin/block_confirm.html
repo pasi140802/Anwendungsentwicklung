@@ -1,19 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Sperre bestätigen · CourtSlot{% endblock %}
+{% block title %}Sperre bestätigen – CourtSlot{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>Sperre bestätigen</h1>
-  <p>Im gewählten Zeitraum ({{ form.reason }}) gibt es {{ affected | length }} Buchungen. Sie werden storniert, wenn du die Sperre bestätigst.</p>
-  <table class="list">
+{% set active = "sperren" %}{% include "admin/_nav.html" %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>Sperre bestätigen</h2>
+    <p>Im gewählten Zeitraum ({{ form.reason }}) {{ "liegt eine Buchung" if affected | length == 1 else "liegen " ~ (affected | length) ~ " Buchungen" }}. Mit der Sperre werden sie storniert.</p>
+  </div>
+  <table class="table">
     <thead><tr><th>Termin</th><th>Platz</th><th>Mitglied</th></tr></thead>
     <tbody>{% for b in affected %}<tr><td>{{ b.start_at | dt }}</td><td>{{ b.court.name }}</td><td>{{ b.user.name }}</td></tr>{% endfor %}</tbody>
   </table>
-  <form method="post" action="/admin/sperren" class="inline-form">
+  <form method="post" action="/admin/sperren" class="addbar" style="border-top:1px solid var(--rule);border-bottom:0">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
     {% for k, v in form.items() %}<input type="hidden" name="{{ k }}" value="{{ v }}">{% endfor %}
     <input type="hidden" name="confirm" value="true">
-    <button type="submit" class="danger">Sperren und {{ affected | length }} Buchungen stornieren</button>
-    <a href="/admin/sperren">Abbrechen</a>
+    <button type="submit" class="btn btn-danger">Sperren und {{ affected | length }} {{ "Buchung" if affected | length == 1 else "Buchungen" }} stornieren</button>
+    <a class="btn btn-quiet" href="/admin/sperren">Abbrechen</a>
   </form>
 </section>
 {% endblock %}

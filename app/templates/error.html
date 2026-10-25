@@ -1,9 +1,9 @@
 {% extends "base.html" %}
-{% block title %}{{ title }} · CourtSlot{% endblock %}
+{% block title %}{{ title }} – CourtSlot{% endblock %}
 {% block content %}
-<section class="card narrow">
-  <h1>{{ title }}</h1>
+<section class="notice">
+  <h1 class="display" style="font-size:1.8rem">{{ title }}</h1>
   <p>{{ message }}</p>
-  <p><a href="/kalender">Zurück zum Kalender</a></p>
+  <a class="btn btn-quiet" href="/kalender">Zum Kalender</a>
 </section>
 {% endblock %}

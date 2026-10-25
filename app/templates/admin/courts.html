@@ -1,41 +1,45 @@
 {% extends "base.html" %}
-{% block title %}Plätze · CourtSlot{% endblock %}
+{% block title %}Plätze – CourtSlot{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>Plätze</h1>
-  <form method="post" action="/admin/plaetze" class="inline-form">
+{% set active = "plaetze" %}{% include "admin/_nav.html" %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>Plätze</h2>
+    <p>Deaktivierte Plätze verschwinden aus dem Kalender. Plätze mit kommenden Buchungen lassen sich erst deaktivieren, wenn die Buchungen storniert oder gesperrt sind.</p>
+  </div>
+  <form method="post" action="/admin/plaetze" class="addbar">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
-    <label>Name <input name="name" required placeholder="z. B. Platz 5"></label>
-    <label>Sportart
+    <label class="field grow">Name <input name="name" required placeholder="Platz 5"></label>
+    <label class="field">Sportart
       <select name="sport"><option value="tennis">Tennis</option><option value="padel">Padel</option></select>
     </label>
-    <label>Belag <input name="surface" placeholder="z. B. Sand"></label>
-    <button type="submit" class="primary">Platz anlegen</button>
+    <label class="field grow">Belag <input name="surface" placeholder="Sand"></label>
+    <button type="submit" class="btn btn-court">Platz anlegen</button>
   </form>
-  <table class="list">
-    <thead><tr><th>Name</th><th>Sportart</th><th>Belag</th><th>Status</th><th></th></tr></thead>
+  <table class="table">
+    <thead><tr><th>Platz</th><th class="hide-sm">Status</th><th class="actions"><span class="visually-hidden">Aktionen</span></th></tr></thead>
     <tbody>
     {% for c in courts %}
       <tr>
-        <td colspan="3">
+        <td>
           <form method="post" action="/admin/plaetze" class="row-form">
             <input type="hidden" name="csrf_token" value="{{ csrf }}">
             <input type="hidden" name="court_id" value="{{ c.id }}">
-            <input name="name" value="{{ c.name }}" aria-label="Name" required>
-            <select name="sport" aria-label="Sportart">
+            <input class="inline-input" name="name" value="{{ c.name }}" aria-label="Name" required size="12">
+            <select class="inline-input" name="sport" aria-label="Sportart">
               <option value="tennis" {% if c.sport == "tennis" %}selected{% endif %}>Tennis</option>
               <option value="padel" {% if c.sport == "padel" %}selected{% endif %}>Padel</option>
             </select>
-            <input name="surface" value="{{ c.surface }}" aria-label="Belag">
-            <button type="submit">Speichern</button>
+            <input class="inline-input" name="surface" value="{{ c.surface }}" aria-label="Belag" size="12">
+            <button type="submit" class="btn-text">Speichern</button>
           </form>
         </td>
-        <td>{{ "aktiv" if c.is_active else "deaktiviert" }}</td>
-        <td>
+        <td class="hide-sm"><span class="badge{% if not c.is_active %} badge-off{% endif %}">{{ "aktiv" if c.is_active else "deaktiviert" }}</span></td>
+        <td class="actions">
           <form method="post" action="/admin/plaetze/{{ c.id }}/aktiv">
             <input type="hidden" name="csrf_token" value="{{ csrf }}">
             <input type="hidden" name="active" value="{{ 'false' if c.is_active else 'true' }}">
-            <button type="submit">{{ "Deaktivieren" if c.is_active else "Aktivieren" }}</button>
+            <button type="submit" class="btn-text{% if c.is_active %} danger{% endif %}">{{ "Deaktivieren" if c.is_active else "Aktivieren" }}</button>
           </form>
         </td>
       </tr>

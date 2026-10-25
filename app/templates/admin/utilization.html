@@ -1,26 +1,33 @@
 {% extends "base.html" %}
-{% block title %}Auslastung · CourtSlot{% endblock %}
+{% from "_icons.html" import icon %}
+{% block title %}Auslastung – CourtSlot{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>Auslastung</h1>
-  <nav class="week-nav">
-    <a href="/admin/auslastung?start={{ prev_week.isoformat() }}">← Vorwoche</a>
-    <span>Woche ab {{ monday | day }}</span>
-    <a href="/admin/auslastung?start={{ next_week.isoformat() }}">Nächste Woche →</a>
-  </nav>
-  <table class="list">
-    <thead><tr><th>Platz</th><th class="num">Gebucht</th><th class="num">Angeboten</th><th>Auslastung</th></tr></thead>
-    <tbody>
+{% set active = "auslastung" %}{% include "admin/_nav.html" %}
+{%- set ns = namespace(booked=0, offered=0) -%}
+{%- for court, booked, offered, share in rows %}{% set ns.booked = ns.booked + booked %}{% set ns.offered = ns.offered + offered %}{% endfor -%}
+<section class="panel">
+  <div class="panel-head" style="display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:12px">
+    <div>
+      <h2>Auslastung in KW {{ monday.isocalendar()[1] }}</h2>
+      <p>Gebuchte Stunden im Verhältnis zu den buchbaren Stunden, gesperrte Zeiten ausgenommen.</p>
+    </div>
+    <nav class="weeknav" aria-label="Woche wechseln">
+      <a class="icon-btn" href="/admin/auslastung?start={{ prev_week.isoformat() }}" aria-label="Vorherige Woche">{{ icon("left") }}</a>
+      <a class="icon-btn" href="/admin/auslastung?start={{ next_week.isoformat() }}" aria-label="Nächste Woche">{{ icon("right") }}</a>
+    </nav>
+  </div>
+  <div class="panel-body util-total">
+    <strong>{{ '%.0f' % (ns.booked / ns.offered * 100 if ns.offered else 0) }} %</strong>
+    <span class="muted">{{ ns.booked }} von {{ ns.offered }} Stunden gebucht, alle Plätze</span>
+  </div>
+  <div class="util">
     {% for court, booked, offered, share in rows %}
-      <tr>
-        <td>{{ court.name }}</td>
-        <td class="num">{{ booked }}</td>
-        <td class="num">{{ offered }}</td>
-        <td><div class="bar" role="img" aria-label="{{ '%.0f' % share }} Prozent"><span style="width: {{ '%.1f' % share }}%"></span></div> {{ '%.0f' % share }} %</td>
-      </tr>
+    <div class="util-row">
+      <div><strong>{{ court.name }}</strong><span class="util-sub">{{ booked }} von {{ offered }} Stunden</span></div>
+      <div class="util-bar" role="img" aria-label="{{ '%.0f' % share }} Prozent"><span style="width: {{ '%.1f' % share }}%"></span></div>
+      <div class="util-pct">{{ '%.0f' % share }} %</div>
+    </div>
     {% endfor %}
-    </tbody>
-  </table>
-  <p class="muted">Auslastung = gebuchte Slots ÷ angebotene Slots (ohne gesperrte Slots).</p>
+  </div>
 </section>
 {% endblock %}

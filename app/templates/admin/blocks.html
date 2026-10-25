@@ -1,34 +1,39 @@
 {% extends "base.html" %}
-{% block title %}Sperren · CourtSlot{% endblock %}
+{% block title %}Sperren – CourtSlot{% endblock %}
 {% block content %}
-<section class="card">
-  <h1>Platzsperren</h1>
-  <p class="muted">Für Wartung, Medenspiele oder Training. Gesperrte Slots sind nicht buchbar.</p>
-  <form method="post" action="/admin/sperren" class="inline-form">
+{% set active = "sperren" %}{% include "admin/_nav.html" %}
+<section class="panel">
+  <div class="panel-head">
+    <h2>Platz sperren</h2>
+    <p>Für Medenspiele, Training oder Wartung. Gesperrte Zeiten sind nicht buchbar und zeigen den Grund im Kalender.</p>
+  </div>
+  <form method="post" action="/admin/sperren" class="addbar">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
-    <label>Platz
+    <label class="field">Platz
       <select name="court_id">{% for c in courts if c.is_active %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
     </label>
-    <label>Von <input type="datetime-local" name="start" step="3600" required></label>
-    <label>Bis <input type="datetime-local" name="end" step="3600" required></label>
-    <label>Grund <input name="reason" required placeholder="z. B. Medenspiel"></label>
-    <button type="submit" class="primary">Sperre anlegen</button>
+    <label class="field">Von <input type="datetime-local" name="start" step="3600" required></label>
+    <label class="field">Bis <input type="datetime-local" name="end" step="3600" required></label>
+    <label class="field grow">Grund <input name="reason" required placeholder="Medenspiel Herren 40"></label>
+    <button type="submit" class="btn btn-court">Sperren</button>
   </form>
-  <table class="list">
-    <thead><tr><th>Platz</th><th>Von</th><th>Bis</th><th>Grund</th><th></th></tr></thead>
+  <table class="table">
+    <thead><tr><th>Platz</th><th>Zeitraum</th><th class="hide-sm">Grund</th><th class="actions"><span class="visually-hidden">Aktionen</span></th></tr></thead>
     <tbody>
-    {% for b in blocks %}
+    {% for b in blocks %}{% set s = b.start_at | local %}{% set e = b.end_at | local %}
       <tr>
-        <td>{{ b.court.name }}</td><td>{{ b.start_at | dt }}</td><td>{{ b.end_at | dt }}</td><td>{{ b.reason }}</td>
-        <td>
+        <td><strong>{{ b.court.name }}</strong></td>
+        <td>{{ s | weekday }}, {{ s.strftime('%d.%m.') }} {{ s.strftime('%H:%M') }} bis {% if e.date() != s.date() %}{{ e | weekday }}, {{ e.strftime('%d.%m.') }} {% endif %}{{ e.strftime('%H:%M') }} Uhr<span class="muted show-sm">{{ b.reason }}</span></td>
+        <td class="hide-sm">{{ b.reason }}</td>
+        <td class="actions">
           <form method="post" action="/admin/sperren/{{ b.id }}/loeschen">
             <input type="hidden" name="csrf_token" value="{{ csrf }}">
-            <button type="submit">Aufheben</button>
+            <button type="submit" class="btn-text">Aufheben</button>
           </form>
         </td>
       </tr>
     {% else %}
-      <tr><td colspan="5" class="muted">Keine aktuellen Sperren.</td></tr>
+      <tr><td colspan="4" class="muted">Keine aktuellen Sperren. Alle Plätze sind frei buchbar.</td></tr>
     {% endfor %}
     </tbody>
   </table>

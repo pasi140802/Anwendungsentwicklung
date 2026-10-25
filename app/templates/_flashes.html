@@ -1,1 +1,1 @@
-{% for f in flashes %}<p class="flash flash-{{ f.kind }}" role="status">{{ f.text }}</p>{% endfor %}
+{% from "_icons.html" import icon %}{% for f in flashes %}<p class="toast toast-{{ f.kind }}" role="status">{{ icon("check" if f.kind == "ok" else "alert", 18) }}<span>{{ f.text }}</span></p>{% endfor %}

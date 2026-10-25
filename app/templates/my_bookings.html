@@ -1,35 +1,47 @@
 {% extends "base.html" %}
-{% block title %}Meine Buchungen · CourtSlot{% endblock %}
+{% block title %}Meine Buchungen – CourtSlot{% endblock %}
+{% macro booking_item(b, past=False) %}{% set s = b.start_at | local %}{% set e = b.end_at | local %}
+<li class="booking{% if past %} is-past{% endif %}">
+  <div class="datechip" aria-hidden="true">
+    <span class="datechip-wd">{{ s | weekday }}</span>
+    <span class="datechip-num">{{ s.day }}</span>
+    <span class="datechip-mon">{{ (s | month)[:3] }}</span>
+  </div>
+  <div class="booking-main">
+    <h3>{{ b.court.name }}, {{ s.strftime('%H:%M') }} bis {{ e.strftime('%H:%M') }} Uhr</h3>
+    <p>{{ s | weekday_long }}, {{ s.day }}. {{ s | month }} {{ s.year }}. {{ sport_label(b.court.sport) }}{% if b.court.surface %} auf {{ b.court.surface }}{% endif %}</p>
+  </div>
+  {% if not past %}
+  <form class="booking-act" method="post" action="/buchungen/{{ b.id }}/storno"
+        data-confirm-title="Buchung stornieren?" data-confirm-text="{{ b.court.name }}, {{ s | weekday_long }}, {{ s.day }}. {{ s | month }}, {{ s.strftime('%H:%M') }} Uhr. Der Platz wird sofort für andere frei." data-confirm-ok="Stornieren" data-confirm-danger>
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <input type="hidden" name="back" value="/meine-buchungen">
+    <button type="submit" class="btn btn-quiet btn-small">Stornieren</button>
+  </form>
+  {% endif %}
+</li>
+{% endmacro %}
 {% block content %}
-<section class="card">
-  <h1>Meine Buchungen</h1>
-  <h2>Kommende</h2>
-  {% if upcoming %}
-  <table class="list">
-    <thead><tr><th>Termin</th><th>Platz</th><th></th></tr></thead>
-    <tbody>
-    {% for b in upcoming %}
-      <tr>
-        <td>{{ b.start_at | dt }}</td>
-        <td>{{ b.court.name }}</td>
-        <td>
-          <form method="post" action="/buchungen/{{ b.id }}/storno" onsubmit="return confirm('Buchung stornieren?')">
-            <input type="hidden" name="csrf_token" value="{{ csrf }}">
-            <input type="hidden" name="back" value="/meine-buchungen">
-            <button type="submit" class="danger">Stornieren</button>
-          </form>
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-  {% else %}<p class="muted">Keine kommenden Buchungen. <a href="/kalender">Zum Kalender</a></p>{% endif %}
-  <h2>Vergangene</h2>
-  {% if past %}
-  <table class="list">
-    <thead><tr><th>Termin</th><th>Platz</th></tr></thead>
-    <tbody>{% for b in past %}<tr><td>{{ b.start_at | dt }}</td><td>{{ b.court.name }}</td></tr>{% endfor %}</tbody>
-  </table>
-  {% else %}<p class="muted">Noch keine vergangenen Buchungen.</p>{% endif %}
-</section>
+<header class="page-head">
+  <div>
+    <h1 class="display">Meine Buchungen</h1>
+    <p>Stornieren geht bis zum Beginn des Spiels.</p>
+  </div>
+  <a class="btn btn-primary" href="/kalender">Platz buchen</a>
+</header>
+
+{% if upcoming %}
+<ul class="bookings">{% for b in upcoming %}{{ booking_item(b) }}{% endfor %}</ul>
+{% else %}
+<div class="empty">
+  <h2>Kein Spiel geplant</h2>
+  <p>Im Kalender siehst du, welche Plätze in den nächsten Tagen frei sind.</p>
+  <a class="btn btn-primary" href="/kalender">Freie Plätze ansehen</a>
+</div>
+{% endif %}
+
+{% if past %}
+<h2 class="section-title">Vergangene Spiele</h2>
+<ul class="bookings bookings-past">{% for b in past[:10] %}{{ booking_item(b, True) }}{% endfor %}</ul>
+{% endif %}
 {% endblock %}

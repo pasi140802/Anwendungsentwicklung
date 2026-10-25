@@ -23,14 +23,34 @@ def _monday(start: str | None) -> date:
     return svc.week_start_for(today)
 
 
-def _calendar(request: Request, db: Session, user: User, monday: date, partial: bool):
+def _selected_day(monday: date, wanted: date | None, today: date) -> date:
+    """Angezeigter Tag der Woche: gewünschter Tag, sonst heute, sonst Montag."""
+    sunday = monday + timedelta(days=6)
+    for candidate in (wanted, today):
+        if candidate and monday <= candidate <= sunday:
+            return candidate
+    return monday
+
+
+def _parse_day(value: str | None) -> date | None:
+    try:
+        return date.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def _calendar(request: Request, db: Session, user: User, monday: date, partial: bool,
+              selected: date | None = None):
     now = svc.now_local()
     courts, days = svc.build_week(db, user, monday, now)
     club = db.get(Club, user.club_id)
+    upcoming, _ = svc.my_bookings(db, user, now)
     context = dict(
         user=user, club=club, courts=courts, days=days, monday=monday,
         prev_week=monday - timedelta(days=7), next_week=monday + timedelta(days=7),
-        today=now.date(), active_count=svc.active_booking_count(db, user.id, now),
+        today=now.date(), active_count=len(upcoming),
+        next_booking=upcoming[0] if upcoming else None,
+        selected=_selected_day(monday, selected, now.date()),
         oob=partial,
     )
     template = "_week.html" if partial else "calendar.html"
@@ -43,9 +63,10 @@ def home():
 
 
 @router.get("/kalender")
-def calendar(request: Request, start: str | None = None, db: Session = Depends(get_db),
-             user: User = Depends(get_current_user)):
-    return _calendar(request, db, user, _monday(start), partial=False)
+def calendar(request: Request, start: str | None = None, tag: str | None = None,
+             db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    wanted = _parse_day(tag) or _parse_day(start)
+    return _calendar(request, db, user, _monday(start or tag), partial=False, selected=wanted)
 
 
 @router.post("/buchungen", dependencies=[Depends(verify_csrf)])
@@ -64,10 +85,10 @@ def create_booking(request: Request, court_id: int = Form(...), start: str = For
         flash(request, f"Gebucht: {booking.court.name}, {when:%d.%m. %H:%M} Uhr.")
     except svc.BookingError as exc:
         flash(request, str(exc), "error")
-    monday = svc.week_start_for(slot.astimezone(TZ).date())
+    day = slot.astimezone(TZ).date()
     if is_htmx(request):
-        return _calendar(request, db, user, monday, partial=True)
-    return redirect(f"/kalender?start={monday.isoformat()}")
+        return _calendar(request, db, user, svc.week_start_for(day), partial=True, selected=day)
+    return redirect(f"/kalender?tag={day.isoformat()}")
 
 
 @router.post("/buchungen/{booking_id}/storno", dependencies=[Depends(verify_csrf)])
@@ -77,12 +98,12 @@ def cancel(request: Request, booking_id: int, back: str = Form("/kalender"),
         booking = svc.cancel_booking(db, user, booking_id)
         when = booking.start_at.astimezone(TZ)
         flash(request, f"Storniert: {booking.court.name}, {when:%d.%m. %H:%M} Uhr.")
-        monday = svc.week_start_for(booking.start_at.astimezone(TZ).date())
+        day = booking.start_at.astimezone(TZ).date()
     except svc.BookingError as exc:
         flash(request, str(exc), "error")
-        monday = _monday(None)
+        day = svc.now_local().date()
     if is_htmx(request) and back.startswith("/kalender"):
-        return _calendar(request, db, user, monday, partial=True)
+        return _calendar(request, db, user, svc.week_start_for(day), partial=True, selected=day)
     target = back if back.startswith("/") and not back.startswith("//") else "/kalender"
     return redirect(target)
 

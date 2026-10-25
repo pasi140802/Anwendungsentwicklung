@@ -1,37 +1,66 @@
+{% from "_icons.html" import icon, logo %}
+{%- set path = request.url.path -%}
 <!doctype html>
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1F4E9C">
   <title>{% block title %}CourtSlot{% endblock %}</title>
+  <link rel="preload" href="/static/fonts/archivo-latin-wdth-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/style.css">
   <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
 </head>
-<body hx-headers='{"X-CSRF-Token": "{{ csrf }}"}'>
+<body class="{{ 'has-user' if user else 'no-user' }}" hx-headers='{"X-CSRF-Token": "{{ csrf }}"}'>
+  <a class="skip" href="#main">Zum Inhalt springen</a>
+  {% if user %}
   <header class="topbar">
-    <a class="brand" href="/kalender">CourtSlot</a>
-    {% if user %}
-    <nav>
-      <a href="/kalender">Kalender</a>
-      <a href="/meine-buchungen">Meine Buchungen</a>
-      {% if user.is_admin %}
-      <a href="/admin/plaetze">Plätze</a>
-      <a href="/admin/sperren">Sperren</a>
-      <a href="/admin/mitglieder">Mitglieder</a>
-      <a href="/admin/regeln">Regeln</a>
-      <a href="/admin/auslastung">Auslastung</a>
-      {% endif %}
+    <a class="brand" href="/kalender" aria-label="CourtSlot, zum Kalender">{{ logo() }}<span>CourtSlot</span></a>
+    <nav class="mainnav" aria-label="Hauptnavigation">
+      <a href="/kalender" {% if path.startswith('/kalender') %}aria-current="page"{% endif %}>Kalender</a>
+      <a href="/meine-buchungen" {% if path.startswith('/meine-buchungen') %}aria-current="page"{% endif %}>Meine Buchungen</a>
+      {% if user.is_admin %}<a href="/admin/plaetze" {% if path.startswith('/admin') %}aria-current="page"{% endif %}>Verwaltung</a>{% endif %}
     </nav>
-    <form method="post" action="/logout" class="logout">
-      <input type="hidden" name="csrf_token" value="{{ csrf }}">
-      <span class="who">{{ user.name }}{% if user.is_admin %} · Admin{% endif %}</span>
-      <button type="submit" class="link">Abmelden</button>
-    </form>
-    {% endif %}
+    <details class="usermenu">
+      <summary aria-label="Konto von {{ user.name }}">
+        <span class="avatar" aria-hidden="true">{{ user.name | initials }}</span>
+        <span class="usermenu-name">{{ user.name }}</span>
+      </summary>
+      <div class="usermenu-panel">
+        <p class="usermenu-who"><strong>{{ user.name }}</strong><span>{{ user.club.name }}, {{ "Admin" if user.is_admin else "Mitglied" }}</span></p>
+        <form method="post" action="/logout">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <button type="submit" class="menu-action">{{ icon("logout", 18) }}Abmelden</button>
+        </form>
+      </div>
+    </details>
   </header>
-  <main>
-    <div id="flashes">{% include "_flashes.html" %}</div>
+  {% endif %}
+
+  <main id="main" class="{% block main_class %}page{% endblock %}">
     {% block content %}{% endblock %}
   </main>
+
+  {% if user %}
+  <nav class="tabbar" aria-label="Navigation">
+    <a href="/kalender" {% if path.startswith('/kalender') %}aria-current="page"{% endif %}>{{ icon("calendar", 22) }}<span>Kalender</span></a>
+    <a href="/meine-buchungen" {% if path.startswith('/meine-buchungen') %}aria-current="page"{% endif %}>{{ icon("ticket", 22) }}<span>Buchungen</span></a>
+    {% if user.is_admin %}<a href="/admin/plaetze" {% if path.startswith('/admin') %}aria-current="page"{% endif %}>{{ icon("settings", 22) }}<span>Verwaltung</span></a>{% endif %}
+  </nav>
+  {% endif %}
+
+  <div id="flashes" class="toasts" aria-live="polite">{% include "_flashes.html" %}</div>
+
+  <dialog id="confirm" class="sheet" aria-labelledby="confirm-title">
+    <form method="dialog">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text"></p>
+      <div class="sheet-actions">
+        <button value="cancel" class="btn btn-quiet">Abbrechen</button>
+        <button value="ok" class="btn btn-primary" id="confirm-ok"></button>
+      </div>
+    </form>
+  </dialog>
 </body>
 </html>
