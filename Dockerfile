@@ -6,6 +6,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+COPY alembic.ini ./
+COPY migrations ./migrations
 COPY app ./app
 COPY scripts ./scripts
 
@@ -14,4 +16,8 @@ RUN useradd --create-home courtslot
 USER courtslot
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)"
+# Proxy-Header (echte Client-IP für das Rate Limiting) werden nur von den in
+# FORWARDED_ALLOW_IPS genannten Adressen angenommen; Standard: nur localhost.
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]

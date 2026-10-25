@@ -1,0 +1,12 @@
+{% autoescape false %}Hallo {{ name }},
+
+die Verwaltung von {{ club }} hat deine Buchung storniert:
+
+{{ court }}, {{ when }}
+{% if reason %}Grund: {{ reason }}
+{% endif %}
+Im Kalender findest du freie Alternativen: {{ base_url }}/kalender
+
+-- 
+CourtSlot, {{ base_url }}
+{% endautoescape %}

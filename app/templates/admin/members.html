@@ -2,37 +2,126 @@
 {% block title %}Mitglieder – CourtSlot{% endblock %}
 {% block content %}
 {% set active = "mitglieder" %}{% include "admin/_nav.html" %}
+
+{% if pending %}
+<section class="panel panel-attention">
+  <div class="panel-head">
+    <h2>Beitrittsanfragen</h2>
+    <p>Diese Personen haben sich mit dem Beitrittscode gemeldet. Prüf kurz, ob sie Mitglied sind.</p>
+  </div>
+  <table class="table">
+    <tbody>
+    {% for m in pending %}
+      <tr>
+        <td><span class="person"><span class="avatar" aria-hidden="true">{{ m.user.name | initials }}</span><span>{{ m.user.name }}<span class="util-sub">{{ m.user.email }}</span></span></span></td>
+        <td class="hide-sm muted">seit {{ m.created_at | local | day }}</td>
+        <td class="actions">
+          <form method="post" action="/admin/mitglieder/{{ m.id }}/anfrage">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <input type="hidden" name="accept" value="false">
+            <button type="submit" class="btn-text danger">Ablehnen</button>
+          </form>
+          <form method="post" action="/admin/mitglieder/{{ m.id }}/anfrage">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <input type="hidden" name="accept" value="true">
+            <button type="submit" class="btn btn-court btn-small">Aufnehmen</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
+<div class="invite-grid">
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Per Mail einladen</h2>
+      <p>Die Person bekommt einen Link, der sieben Tage gilt, und ist danach sofort Mitglied.</p>
+    </div>
+    <form method="post" action="/admin/einladungen" class="panel-body stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <label class="field">E-Mail-Adresse <input type="email" name="email" required autocomplete="off"></label>
+      <fieldset class="field segmented">
+        <legend>Rolle</legend>
+        <label><input type="radio" name="role" value="member" checked><span>Mitglied</span></label>
+        <label><input type="radio" name="role" value="admin"><span>Verwaltung</span></label>
+      </fieldset>
+      <div><button type="submit" class="btn btn-court">Einladung senden</button></div>
+    </form>
+  </section>
+  <section class="panel">
+    <div class="panel-head">
+      <h2>Beitrittscode</h2>
+      <p>Für Aushang oder Rundmail. Wer sich damit meldet, wartet auf deine Freigabe.</p>
+    </div>
+    <div class="panel-body stack">
+      <p class="joincode" aria-label="Beitrittscode">{{ club.join_code }}</p>
+      <form method="post" action="/admin/beitrittscode"
+            data-confirm-title="Neuen Code erzeugen?" data-confirm-text="Der bisherige Code funktioniert danach nicht mehr." data-confirm-ok="Neuen Code erzeugen">
+        <input type="hidden" name="csrf_token" value="{{ csrf }}">
+        <button type="submit" class="btn btn-quiet btn-small">Neuen Code erzeugen</button>
+      </form>
+    </div>
+  </section>
+</div>
+
+{% if invitations %}
+<section class="panel">
+  <div class="panel-head"><h2>Offene Einladungen</h2></div>
+  <table class="table">
+    <tbody>
+    {% for inv in invitations %}
+      <tr>
+        <td>{{ inv.email }}{% if inv.role == "admin" %} <span class="badge">Verwaltung</span>{% endif %}</td>
+        <td class="hide-sm muted">verschickt am {{ inv.created_at | local | day }}</td>
+        <td class="actions">
+          <form method="post" action="/admin/einladungen/{{ inv.id }}/zurueckziehen">
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <button type="submit" class="btn-text danger">Zurückziehen</button>
+          </form>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+
 <section class="panel">
   <div class="panel-head">
     <h2>Mitglieder</h2>
-    <p>{{ members | length }} Personen. Neue Mitglieder erhalten ein Startpasswort, das nur einmal angezeigt wird.</p>
+    <p>{{ members | length }} {{ "Person" if members | length == 1 else "Personen" }}. Sperren storniert kommende Buchungen im Verein.</p>
   </div>
-  <form method="post" action="/admin/mitglieder" class="addbar">
-    <input type="hidden" name="csrf_token" value="{{ csrf }}">
-    <label class="field grow">Name <input name="name" required autocomplete="off"></label>
-    <label class="field grow">E-Mail-Adresse <input type="email" name="email" required autocomplete="off"></label>
-    <label class="field">Rolle
-      <select name="role"><option value="member">Mitglied</option><option value="admin">Admin</option></select>
-    </label>
-    <button type="submit" class="btn btn-court">Mitglied anlegen</button>
-  </form>
   <table class="table">
-    <thead><tr><th>Name</th><th class="hide-sm">E-Mail-Adresse</th><th>Status</th><th class="actions"><span class="visually-hidden">Aktionen</span></th></tr></thead>
+    <thead><tr><th>Name</th><th class="hide-sm">Rolle</th><th>Status</th><th class="actions"><span class="visually-hidden">Aktionen</span></th></tr></thead>
     <tbody>
-    {% for m in members %}
+    {% for m in members %}{% set me = m.user_id == user.id %}
       <tr>
-        <td><span class="person"><span class="avatar" aria-hidden="true">{{ m.name | initials }}</span><span>{{ m.name }}{% if m.is_admin %} <span class="badge">Admin</span>{% endif %}</span></span></td>
-        <td class="hide-sm muted">{{ m.email }}</td>
-        <td><span class="badge{% if not m.is_active %} badge-warn{% endif %}">{{ "aktiv" if m.is_active else "gesperrt" }}</span></td>
-        <td class="actions">
-          {% if m.id != user.id %}
-          <form method="post" action="/admin/mitglieder/{{ m.id }}/{{ 'sperren' if m.is_active else 'entsperren' }}"
-                {% if m.is_active %}data-confirm-title="{{ m.name }} sperren?" data-confirm-text="Kommende Buchungen werden storniert, laufende Sitzungen beendet." data-confirm-ok="Sperren" data-confirm-danger{% endif %}>
+        <td><span class="person"><span class="avatar" aria-hidden="true">{{ m.user.name | initials }}</span><span>{{ m.user.name }}<span class="util-sub">{{ m.user.email }}</span></span></span></td>
+        <td class="hide-sm">
+          {% if me %}{{ "Verwaltung" if m.role == "admin" else "Mitglied" }}{% else %}
+          <form method="post" action="/admin/mitglieder/{{ m.id }}/rolle" class="row-form">
             <input type="hidden" name="csrf_token" value="{{ csrf }}">
-            <button type="submit" class="btn-text">{{ "Sperren" if m.is_active else "Entsperren" }}</button>
+            <select class="inline-input" name="role" aria-label="Rolle von {{ m.user.name }}" data-autosubmit>
+              <option value="member" {% if m.role == "member" %}selected{% endif %}>Mitglied</option>
+              <option value="admin" {% if m.role == "admin" %}selected{% endif %}>Verwaltung</option>
+            </select>
+            <noscript><button type="submit" class="btn-text">Ändern</button></noscript>
+          </form>
+          {% endif %}
+        </td>
+        <td><span class="badge{% if m.status == 'locked' %} badge-warn{% endif %}">{{ "aktiv" if m.status == "active" else "gesperrt" }}</span></td>
+        <td class="actions">
+          {% if not me %}
+          <form method="post" action="/admin/mitglieder/{{ m.id }}/{{ 'sperren' if m.status == 'active' else 'entsperren' }}"
+                {% if m.status == "active" %}data-confirm-title="{{ m.user.name }} sperren?" data-confirm-text="Kommende Buchungen im Verein werden storniert. Entsperren ist jederzeit möglich." data-confirm-ok="Sperren" data-confirm-danger{% endif %}>
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <button type="submit" class="btn-text">{{ "Sperren" if m.status == "active" else "Entsperren" }}</button>
           </form>
           <form method="post" action="/admin/mitglieder/{{ m.id }}/entfernen"
-                data-confirm-title="{{ m.name }} entfernen?" data-confirm-text="Name und E-Mail-Adresse werden gelöscht, kommende Buchungen storniert. Das lässt sich nicht rückgängig machen." data-confirm-ok="Endgültig entfernen" data-confirm-danger>
+                data-confirm-title="{{ m.user.name }} aus dem Verein entfernen?" data-confirm-text="Kommende Buchungen im Verein werden storniert. Das Konto der Person bleibt bestehen." data-confirm-ok="Entfernen" data-confirm-danger>
             <input type="hidden" name="csrf_token" value="{{ csrf }}">
             <button type="submit" class="btn-text danger">Entfernen</button>
           </form>

@@ -2,7 +2,7 @@
 <header class="page-head">
   <div>
     <h1 class="display">Verwaltung</h1>
-    <p>{{ user.club.name }}</p>
+    <p>{{ member.club.name }}</p>
   </div>
 </header>
 <nav class="subnav" aria-label="Verwaltung">
@@ -10,8 +10,8 @@
       ("plaetze", "/admin/plaetze", "Plätze", "court"),
       ("sperren", "/admin/sperren", "Sperren", "lock"),
       ("mitglieder", "/admin/mitglieder", "Mitglieder", "users"),
-      ("regeln", "/admin/regeln", "Regeln", "rules"),
+      ("verein", "/admin/verein", "Verein", "rules"),
       ("auslastung", "/admin/auslastung", "Auslastung", "chart")] %}
-  <a href="{{ href }}" {% if active == key %}aria-current="page"{% endif %}>{{ icon(ic, 18) }}{{ label }}</a>
+  <a href="{{ href }}" {% if active == key %}aria-current="page"{% endif %}>{{ icon(ic, 18) }}{{ label }}{% if key == "mitglieder" and pending_count %}<span class="count" aria-label="{{ pending_count }} offene Anfragen">{{ pending_count }}</span>{% endif %}</a>
   {% endfor %}
 </nav>

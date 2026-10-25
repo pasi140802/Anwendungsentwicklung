@@ -13,6 +13,10 @@ select = ["E", "F", "I", "B", "UP"]
 # FastAPI nutzt Depends()/Form() bewusst als Default-Argumente.
 ignore = ["B008"]
 
+[tool.ruff.lint.per-file-ignores]
+# Von Alembic erzeugte Migrationen bleiben im generierten Format.
+"migrations/versions/*" = ["E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 filterwarnings = ["ignore::DeprecationWarning"]

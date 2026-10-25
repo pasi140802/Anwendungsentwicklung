@@ -1,0 +1,17 @@
+{% autoescape false %}Hallo {{ name }},
+
+dein Platz ist gebucht:
+
+{{ club }}
+{{ court }}
+{{ when }} bis {{ until }} Uhr
+{% if price %}Preis: {{ price | euro }}, Bezahlung beim Verein
+{% endif %}
+Stornieren kannst du unter „Meine Buchungen“:
+{{ link }}
+
+Viel Spaß beim Spielen!
+
+-- 
+CourtSlot, {{ base_url }}
+{% endautoescape %}

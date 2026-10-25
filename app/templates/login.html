@@ -1,42 +1,20 @@
-{% extends "base.html" %}
-{% from "_icons.html" import icon, logo %}
+{% extends "_auth_layout.html" %}
+{% from "_icons.html" import icon %}
 {% block title %}Anmelden – CourtSlot{% endblock %}
-{% block main_class %}login{% endblock %}
-{% block content %}
-<section class="login-court">
-  <span class="brand">{{ logo() }}<span>CourtSlot</span></span>
-  <svg class="court-art" viewBox="0 0 520 260" aria-hidden="true" focusable="false">
-    <g fill="none" stroke="#fff" stroke-width="2.5" stroke-opacity=".85">
-      <rect x="6" y="6" width="508" height="248"/>
-      <path d="M6 36h508M6 224h508"/>
-      <path d="M134 36v188M386 36v188M134 130h252"/>
-      <path d="M6 130h8M506 130h8"/>
-    </g>
-    <path d="M260 0v260" stroke="#fff" stroke-width="5"/>
-    <circle cx="331" cy="172" r="13" fill="#dff04b"/>
-    <path d="M321 163c5 5 5 13 0 18M341 163c-5 5-5 13 0 18" stroke="#fff" stroke-width="1.8" fill="none" stroke-opacity=".85"/>
-  </svg>
-  <div>
-    <h1>Dein Platz, mit zwei Klicks gebucht.</h1>
-    <p>Sieh, welche Plätze deines Vereins frei sind, und buch sie direkt vom Handy. Ohne Anruf, ohne Liste am Schwarzen Brett.</p>
-  </div>
-</section>
-<section class="login-form">
-  <div class="login-card">
-    <h2>Anmelden</h2>
-    <p>Mit den Zugangsdaten von deinem Verein.</p>
-    {% if error %}<p class="form-error" role="alert">{{ icon("alert", 20) }}<span>{{ error }}</span></p>{% endif %}
-    <form method="post" action="/login" class="stack">
-      <input type="hidden" name="csrf_token" value="{{ csrf }}">
-      <label class="field">E-Mail-Adresse
-        <input type="email" name="email" value="{{ email or '' }}" required autocomplete="username" autofocus>
-      </label>
-      <label class="field">Passwort
-        <input type="password" name="password" required autocomplete="current-password">
-      </label>
-      <button type="submit" class="btn btn-court">Anmelden</button>
-    </form>
-    <p class="demo-hint">Demo-Zugang: <code>lena.hofmann@tc-isartal.de</code> oder <code>admin@tc-isartal.de</code>, Passwort <code>demo1234</code></p>
-  </div>
-</section>
+{% block card %}
+<h2>Anmelden</h2>
+<p>Noch kein Konto? <a href="/registrieren{% if next %}?next={{ next | urlencode }}{% endif %}">Jetzt registrieren</a></p>
+{% if error %}<p class="form-error" role="alert">{{ icon("alert", 20) }}<span>{{ error }}{% if unverified %} <a href="/bestaetigung-erneut">Link erneut senden</a>{% endif %}</span></p>{% endif %}
+<form method="post" action="/login" class="stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  <label class="field">E-Mail-Adresse
+    <input type="email" name="email" value="{{ email or '' }}" required autocomplete="username" autofocus>
+  </label>
+  <label class="field"><span class="field-row">Passwort <a href="/passwort-vergessen">Passwort vergessen?</a></span>
+    <input type="password" name="password" required autocomplete="current-password">
+  </label>
+  <button type="submit" class="btn btn-court">Anmelden</button>
+</form>
+<p class="demo-hint">Demo-Zugang: <code>lena.hofmann@tc-isartal.de</code> oder <code>admin@tc-isartal.de</code>, Passwort <code>demo-courtslot</code></p>
 {% endblock %}

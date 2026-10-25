@@ -1,50 +1,91 @@
 {% extends "base.html" %}
 {% block title %}Plätze – CourtSlot{% endblock %}
+{% macro court_fields(c=None) %}
+{%- set sport = c.sport if c else "tennis" -%}
+<div class="formgrid">
+  <label class="field span-2">Name <input name="name" value="{{ c.name if c else '' }}" required maxlength="60" placeholder="Platz 5"></label>
+  <label class="field">Sportart
+    <select name="sport">
+      <option value="tennis" {% if sport == "tennis" %}selected{% endif %}>Tennis</option>
+      <option value="padel" {% if sport == "padel" %}selected{% endif %}>Padel</option>
+    </select>
+  </label>
+  <label class="field">Belag <input name="surface" value="{{ c.surface if c else '' }}" maxlength="60" placeholder="Sand, Kunstrasen …"></label>
+  <label class="field">Slotlänge
+    <select name="slot_minutes">
+      {% for v in (30, 60, 90, 120) %}<option value="{{ v }}" {% if (c.slot_minutes if c else 60) == v %}selected{% endif %}>{{ v }} Minuten</option>{% endfor %}
+    </select>
+  </label>
+  <label class="field">Saison
+    <select name="season">
+      {% for v, label in (("all", "Ganzjährig"), ("summer", "Nur Sommer"), ("winter", "Nur Winter")) %}<option value="{{ v }}" {% if (c.season if c else "all") == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </label>
+  <label class="field">Preis je Slot <small>leer oder 0 für Mitglieder kostenlos</small>
+    <span class="money"><input name="price" value="{{ (c.price_cents / 100) | num(2) if c and c.price_cents else '' }}" inputmode="decimal" placeholder="0"><span>€</span></span>
+  </label>
+  <label class="field">Preis in der Hauptzeit <small>optional, Hauptzeit unter „Verein“</small>
+    <span class="money"><input name="prime_price" value="{{ (c.prime_price_cents / 100) | num(2) if c and c.prime_price_cents is not none else '' }}" inputmode="decimal" placeholder="wie normal"><span>€</span></span>
+  </label>
+  <div class="checks span-2">
+    <label class="check"><input type="checkbox" name="is_indoor" {% if c and c.is_indoor %}checked{% endif %}><span>Halle</span></label>
+    <label class="check"><input type="checkbox" name="has_floodlight" {% if c and c.has_floodlight %}checked{% endif %}><span>Flutlicht</span></label>
+  </div>
+</div>
+{% endmacro %}
 {% block content %}
 {% set active = "plaetze" %}{% include "admin/_nav.html" %}
+
+{% if not courts %}
+<div class="empty" style="margin-bottom:18px">
+  <h2>Leg deinen ersten Platz an</h2>
+  <p>Für Padel sind 90 Minuten üblich, für Tennis 60. Preise kannst du jederzeit ändern. Danach passt du unter „Verein“ Öffnungszeiten und Regeln an und lädst Mitglieder ein.</p>
+</div>
+{% endif %}
+
 <section class="panel">
   <div class="panel-head">
     <h2>Plätze</h2>
     <p>Deaktivierte Plätze verschwinden aus dem Kalender. Plätze mit kommenden Buchungen lassen sich erst deaktivieren, wenn die Buchungen storniert oder gesperrt sind.</p>
   </div>
-  <form method="post" action="/admin/plaetze" class="addbar">
+  <ul class="courtlist">
+  {% for c in courts %}
+    <li class="courtrow{% if not c.is_active %} is-off{% endif %}">
+      <div class="courtrow-main">
+        <strong>{{ c.name }}</strong>
+        <span class="muted">{{ sport_label(c.sport) }}{% if c.surface %}, {{ c.surface }}{% endif %}, {{ c.slot_minutes }} Minuten{% if c.is_indoor %}, Halle{% endif %}{% if c.has_floodlight %}, Flutlicht{% endif %}{% if c.season != "all" %}, {{ "nur Sommer" if c.season == "summer" else "nur Winter" }}{% endif %}</span>
+      </div>
+      <div class="courtrow-price">
+        {% if c.price_cents %}{{ c.price_cents | euro }}{% if c.prime_price_cents is not none %}<small>Hauptzeit {{ c.prime_price_cents | euro }}</small>{% endif %}{% else %}<span class="muted">kostenlos</span>{% endif %}
+      </div>
+      <span class="badge{% if not c.is_active %} badge-off{% endif %}">{{ "aktiv" if c.is_active else "deaktiviert" }}</span>
+      <div class="courtrow-act">
+        <form method="post" action="/admin/plaetze/{{ c.id }}/aktiv">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <input type="hidden" name="active" value="{{ 'false' if c.is_active else 'true' }}">
+          <button type="submit" class="btn-text{% if c.is_active %} danger{% endif %}">{{ "Deaktivieren" if c.is_active else "Aktivieren" }}</button>
+        </form>
+      </div>
+      <details class="courtrow-edit">
+        <summary class="btn-text">Bearbeiten</summary>
+        <form method="post" action="/admin/plaetze" class="stack">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <input type="hidden" name="court_id" value="{{ c.id }}">
+          {{ court_fields(c) }}
+          <div><button type="submit" class="btn btn-court">Änderungen speichern</button></div>
+        </form>
+      </details>
+    </li>
+  {% endfor %}
+  </ul>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Platz anlegen</h2></div>
+  <form method="post" action="/admin/plaetze" class="panel-body stack">
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
-    <label class="field grow">Name <input name="name" required placeholder="Platz 5"></label>
-    <label class="field">Sportart
-      <select name="sport"><option value="tennis">Tennis</option><option value="padel">Padel</option></select>
-    </label>
-    <label class="field grow">Belag <input name="surface" placeholder="Sand"></label>
-    <button type="submit" class="btn btn-court">Platz anlegen</button>
+    {{ court_fields() }}
+    <div><button type="submit" class="btn btn-primary">Platz anlegen</button></div>
   </form>
-  <table class="table">
-    <thead><tr><th>Platz</th><th class="hide-sm">Status</th><th class="actions"><span class="visually-hidden">Aktionen</span></th></tr></thead>
-    <tbody>
-    {% for c in courts %}
-      <tr>
-        <td>
-          <form method="post" action="/admin/plaetze" class="row-form">
-            <input type="hidden" name="csrf_token" value="{{ csrf }}">
-            <input type="hidden" name="court_id" value="{{ c.id }}">
-            <input class="inline-input" name="name" value="{{ c.name }}" aria-label="Name" required size="12">
-            <select class="inline-input" name="sport" aria-label="Sportart">
-              <option value="tennis" {% if c.sport == "tennis" %}selected{% endif %}>Tennis</option>
-              <option value="padel" {% if c.sport == "padel" %}selected{% endif %}>Padel</option>
-            </select>
-            <input class="inline-input" name="surface" value="{{ c.surface }}" aria-label="Belag" size="12">
-            <button type="submit" class="btn-text">Speichern</button>
-          </form>
-        </td>
-        <td class="hide-sm"><span class="badge{% if not c.is_active %} badge-off{% endif %}">{{ "aktiv" if c.is_active else "deaktiviert" }}</span></td>
-        <td class="actions">
-          <form method="post" action="/admin/plaetze/{{ c.id }}/aktiv">
-            <input type="hidden" name="csrf_token" value="{{ csrf }}">
-            <input type="hidden" name="active" value="{{ 'false' if c.is_active else 'true' }}">
-            <button type="submit" class="btn-text{% if c.is_active %} danger{% endif %}">{{ "Deaktivieren" if c.is_active else "Aktivieren" }}</button>
-          </form>
-        </td>
-      </tr>
-    {% endfor %}
-    </tbody>
-  </table>
 </section>
 {% endblock %}

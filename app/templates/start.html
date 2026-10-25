@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Verein beitreten oder anlegen – CourtSlot{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1 class="display">Hallo {{ user.name.split()[0] }}</h1>
+    <p>{% if memberships %}Du kannst weiteren Vereinen beitreten oder einen eigenen anlegen.{% else %}Damit du Plätze buchen kannst, fehlt noch die Verbindung zu deinem Verein.{% endif %}</p>
+  </div>
+  {% if memberships %}<a class="btn btn-quiet" href="/kalender">Zum Kalender</a>{% endif %}
+</header>
+
+{% if pending %}
+<section class="panel" style="margin-bottom:18px">
+  <div class="panel-head">
+    <h2>Warten auf Freigabe</h2>
+    <p>Die Vereinsverwaltung schaltet dich frei. Du bekommst dann eine Mail.</p>
+  </div>
+  <ul class="plainlist">
+    {% for m in pending %}<li>{{ icon("clock", 18) }}<strong>{{ m.club.name }}</strong><span class="muted">{{ m.club.city }}</span></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<div class="choice">
+  <section class="panel choice-card">
+    <div class="panel-body stack">
+      <h2>Ich bin Mitglied</h2>
+      <p class="muted">Gib den Beitrittscode ein, den dein Verein dir gegeben hat, zum Beispiel per Aushang oder Rundmail. Hast du eine Einladung per Mail bekommen, klick einfach auf den Link darin.</p>
+      {% if join_error %}<p class="form-error" role="alert">{{ icon("alert", 20) }}<span>{{ join_error }}</span></p>{% endif %}
+      <form method="post" action="/beitreten" class="stack">
+        <input type="hidden" name="csrf_token" value="{{ csrf }}">
+        <label class="field">Beitrittscode
+          <input class="code-input" name="code" value="{{ code or '' }}" required maxlength="12" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="z. B. ISAR7K2P">
+        </label>
+        <button type="submit" class="btn btn-court">Beitritt anfragen</button>
+      </form>
+    </div>
+  </section>
+  <section class="panel choice-card">
+    <div class="panel-body stack">
+      <h2>Ich verwalte Plätze</h2>
+      <p class="muted">Leg deinen Verein oder deine Anlage an. Du richtest Plätze, Öffnungszeiten und Regeln ein und lädst deine Mitglieder ein.</p>
+      <a class="btn btn-primary" href="/verein/neu">Verein anlegen</a>
+    </div>
+  </section>
+</div>
+{% endblock %}

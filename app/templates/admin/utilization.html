@@ -16,18 +16,22 @@
       <a class="icon-btn" href="/admin/auslastung?start={{ next_week.isoformat() }}" aria-label="Nächste Woche">{{ icon("right") }}</a>
     </nav>
   </div>
+  {% if rows %}
   <div class="panel-body util-total">
     <strong>{{ '%.0f' % (ns.booked / ns.offered * 100 if ns.offered else 0) }} %</strong>
-    <span class="muted">{{ ns.booked }} von {{ ns.offered }} Stunden gebucht, alle Plätze</span>
+    <span class="muted">{{ ns.booked | num }} von {{ ns.offered | num }} Stunden gebucht, alle Plätze</span>
   </div>
   <div class="util">
     {% for court, booked, offered, share in rows %}
     <div class="util-row">
-      <div><strong>{{ court.name }}</strong><span class="util-sub">{{ booked }} von {{ offered }} Stunden</span></div>
+      <div><strong>{{ court.name }}</strong><span class="util-sub">{{ booked | num }} von {{ offered | num }} Stunden</span></div>
       <div class="util-bar" role="img" aria-label="{{ '%.0f' % share }} Prozent"><span style="width: {{ '%.1f' % share }}%"></span></div>
       <div class="util-pct">{{ '%.0f' % share }} %</div>
     </div>
     {% endfor %}
   </div>
+  {% else %}
+  <div class="panel-body muted">Noch keine aktiven Plätze.</div>
+  {% endif %}
 </section>
 {% endblock %}

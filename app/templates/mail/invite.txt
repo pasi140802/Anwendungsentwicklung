@@ -1,0 +1,12 @@
+{% autoescape false %}Hallo,
+
+{{ inviter }} lädt dich zu {{ club }} auf CourtSlot ein. Dort buchst du Plätze online und siehst sofort, was frei ist.
+
+Einladung annehmen:
+{{ link }}
+
+Der Link gilt sieben Tage.
+
+-- 
+CourtSlot, {{ base_url }}
+{% endautoescape %}

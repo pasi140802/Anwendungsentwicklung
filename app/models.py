@@ -1,25 +1,34 @@
 """Domänenmodell von CourtSlot.
 
-Jede fachliche Tabelle trägt eine club_id (Mandantentrennung, FA-14).
-Der Doppelbuchungsschutz (FA-06) liegt als partieller Unique-Index in der
-Datenbank: pro Platz und Startzeit darf es nur eine bestätigte Buchung geben.
+Ein Benutzerkonto (User) ist vereinsübergreifend. Die Zugehörigkeit zu einem
+Verein, die Rolle und der Freigabestatus stehen in der Mitgliedschaft
+(Membership). Alle fachlichen Daten eines Vereins tragen eine club_id
+(Mandantentrennung, FA-14).
+
+Der Doppelbuchungsschutz (FA-06) liegt als Ausschluss-Constraint in der
+Datenbank: Auf demselben Platz dürfen sich bestätigte Buchungen zeitlich nicht
+überlappen. Das gilt auch für unterschiedliche Slotlängen (z. B. 60 und 90 Min.).
 """
 
 import enum
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
+    DDL,
     Boolean,
     CheckConstraint,
+    Date,
     DateTime,
     Enum,
     ForeignKey,
-    Index,
     Integer,
     String,
+    UniqueConstraint,
+    event,
     func,
     text,
 )
+from sqlalchemy.dialects.postgresql import ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -30,9 +39,26 @@ class Role(enum.StrEnum):
     ADMIN = "admin"
 
 
+class MembershipStatus(enum.StrEnum):
+    PENDING = "pending"   # Beitritt per Code beantragt, wartet auf Freigabe
+    ACTIVE = "active"
+    LOCKED = "locked"     # vom Verein gesperrt
+
+
 class Sport(enum.StrEnum):
     TENNIS = "tennis"
     PADEL = "padel"
+
+
+class Season(enum.StrEnum):
+    ALL = "all"           # ganzjährig
+    SUMMER = "summer"     # nur in der Sommersaison (Freiplätze)
+    WINTER = "winter"     # nur außerhalb der Sommersaison (Hallenplätze)
+
+
+class ClubKind(enum.StrEnum):
+    CLUB = "club"         # Verein
+    FACILITY = "facility"  # gewerbliche Anlage
 
 
 class BookingStatus(enum.StrEnum):
@@ -45,46 +71,137 @@ def _values(enum_cls) -> list[str]:
     return [m.value for m in enum_cls]
 
 
+def _enum(cls, name: str) -> Enum:
+    return Enum(cls, name=name, values_callable=_values)
+
+
+def _now_col():
+    return mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class User(Base):
+    """Vereinsübergreifendes Benutzerkonto."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(254), unique=True)
+    name: Mapped[str] = mapped_column(String(120))
+    password_hash: Mapped[str] = mapped_column(String(255))
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Wird beim Abmelden, Passwortwechsel und Löschen erhöht: alte Sitzungen werden ungültig.
+    session_version: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = _now_col()
+
+    memberships: Mapped[list["Membership"]] = relationship(back_populates="user")
+
+    @property
+    def is_verified(self) -> bool:
+        return self.email_verified_at is not None
+
+
 class Club(Base):
+    """Verein oder Anlage, also der Mandant."""
+
     __tablename__ = "clubs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
+    kind: Mapped[ClubKind] = mapped_column(_enum(ClubKind, "club_kind"), default=ClubKind.CLUB)
+    street: Mapped[str] = mapped_column(String(120), default="")
+    zip_code: Mapped[str] = mapped_column(String(10), default="")
+    city: Mapped[str] = mapped_column(String(80), default="")
+    contact_email: Mapped[str] = mapped_column(String(254), default="")
+    join_code: Mapped[str] = mapped_column(String(12), unique=True)
+    # Buchungsregeln (FA-08)
     max_active_bookings: Mapped[int] = mapped_column(Integer, default=2)
     max_days_ahead: Mapped[int] = mapped_column(Integer, default=7)
-    open_hour: Mapped[int] = mapped_column(Integer, default=8)
-    close_hour: Mapped[int] = mapped_column(Integer, default=22)
+    cancel_hours: Mapped[int] = mapped_column(Integer, default=0)
+    # Sommersaison für Freiplätze (Jahr wird ignoriert)
+    summer_start: Mapped[date] = mapped_column(Date, default=date(2000, 4, 15))
+    summer_end: Mapped[date] = mapped_column(Date, default=date(2000, 10, 15))
+    # Hauptzeit mit eigenem Preis, Minuten ab Mitternacht (optional)
+    prime_from: Mapped[int | None] = mapped_column(Integer)
+    prime_to: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = _now_col()
+
+    hours: Mapped[list["OpeningHours"]] = relationship(
+        order_by="OpeningHours.weekday", cascade="all, delete-orphan"
+    )
 
     __table_args__ = (
         CheckConstraint("max_active_bookings BETWEEN 1 AND 20", name="ck_club_max_active"),
         CheckConstraint("max_days_ahead BETWEEN 1 AND 60", name="ck_club_days_ahead"),
-        CheckConstraint("open_hour >= 0 AND close_hour <= 24 AND open_hour < close_hour",
-                        name="ck_club_hours"),
+        CheckConstraint("cancel_hours BETWEEN 0 AND 72", name="ck_club_cancel_hours"),
+        CheckConstraint("prime_from IS NULL OR (prime_from >= 0 AND prime_to <= 1440 "
+                        "AND prime_from < prime_to)", name="ck_club_prime"),
     )
 
 
-class User(Base):
-    __tablename__ = "users"
+class OpeningHours(Base):
+    """Öffnungszeit je Wochentag (0 = Montag) in Minuten ab Mitternacht."""
+
+    __tablename__ = "opening_hours"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    club_id: Mapped[int] = mapped_column(ForeignKey("clubs.id"), index=True)
-    email: Mapped[str] = mapped_column(String(254), unique=True)
-    name: Mapped[str] = mapped_column(String(120))
-    password_hash: Mapped[str] = mapped_column(String(255))
-    role: Mapped[Role] = mapped_column(
-        Enum(Role, name="role", values_callable=_values), default=Role.MEMBER
-    )
-    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    is_removed: Mapped[bool] = mapped_column(Boolean, default=False)
-    # Wird beim Abmelden, Sperren und Entfernen erhöht und macht alte Sitzungen ungültig.
-    session_version: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    club_id: Mapped[int] = mapped_column(ForeignKey("clubs.id", ondelete="CASCADE"), index=True)
+    weekday: Mapped[int] = mapped_column(Integer)
+    opens: Mapped[int] = mapped_column(Integer, default=8 * 60)
+    closes: Mapped[int] = mapped_column(Integer, default=22 * 60)
+    is_closed: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    __table_args__ = (
+        UniqueConstraint("club_id", "weekday", name="uq_hours_club_weekday"),
+        CheckConstraint("weekday BETWEEN 0 AND 6", name="ck_hours_weekday"),
+        CheckConstraint("opens >= 0 AND closes <= 1440 AND opens < closes", name="ck_hours_range"),
+    )
+
+
+class Membership(Base):
+    """Zugehörigkeit eines Kontos zu einem Verein mit Rolle und Status."""
+
+    __tablename__ = "memberships"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    club_id: Mapped[int] = mapped_column(ForeignKey("clubs.id"), index=True)
+    role: Mapped[Role] = mapped_column(_enum(Role, "role"), default=Role.MEMBER)
+    status: Mapped[MembershipStatus] = mapped_column(
+        _enum(MembershipStatus, "membership_status"), default=MembershipStatus.ACTIVE
+    )
+    created_at: Mapped[datetime] = _now_col()
+
+    user: Mapped[User] = relationship(back_populates="memberships")
     club: Mapped[Club] = relationship()
+
+    __table_args__ = (UniqueConstraint("user_id", "club_id", name="uq_membership"),)
 
     @property
     def is_admin(self) -> bool:
-        return self.role == Role.ADMIN
+        return self.role == Role.ADMIN and self.status == MembershipStatus.ACTIVE
+
+    @property
+    def is_active(self) -> bool:
+        return self.status == MembershipStatus.ACTIVE
+
+
+class Invitation(Base):
+    """Einladung per E-Mail. Der Link enthält die signierte ID der Einladung."""
+
+    __tablename__ = "invitations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    club_id: Mapped[int] = mapped_column(ForeignKey("clubs.id"), index=True)
+    email: Mapped[str] = mapped_column(String(254))
+    role: Mapped[Role] = mapped_column(_enum(Role, "role"), default=Role.MEMBER)
+    invited_by_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = _now_col()
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    club: Mapped[Club] = relationship()
 
 
 class Court(Base):
@@ -93,9 +210,23 @@ class Court(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     club_id: Mapped[int] = mapped_column(ForeignKey("clubs.id"), index=True)
     name: Mapped[str] = mapped_column(String(60))
-    sport: Mapped[Sport] = mapped_column(Enum(Sport, name="sport", values_callable=_values))
+    sport: Mapped[Sport] = mapped_column(_enum(Sport, "sport"))
     surface: Mapped[str] = mapped_column(String(60), default="")
+    is_indoor: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_floodlight: Mapped[bool] = mapped_column(Boolean, default=False)
+    season: Mapped[Season] = mapped_column(_enum(Season, "season"), default=Season.ALL)
+    slot_minutes: Mapped[int] = mapped_column(Integer, default=60)
+    # Preis je Slot für Mitglieder in Cent; 0 = im Beitrag enthalten
+    price_cents: Mapped[int] = mapped_column(Integer, default=0)
+    prime_price_cents: Mapped[int | None] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    __table_args__ = (
+        CheckConstraint("slot_minutes IN (30, 60, 90, 120)", name="ck_court_slot"),
+        CheckConstraint(
+            "price_cents >= 0 AND (prime_price_cents IS NULL OR prime_price_cents >= 0)",
+            name="ck_court_price"),
+    )
 
 
 class Booking(Base):
@@ -107,28 +238,35 @@ class Booking(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    price_cents: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[BookingStatus] = mapped_column(
-        Enum(BookingStatus, name="booking_status", values_callable=_values),
-        default=BookingStatus.CONFIRMED,
+        _enum(BookingStatus, "booking_status"), default=BookingStatus.CONFIRMED
     )
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    created_at: Mapped[datetime] = _now_col()
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     cancelled_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
     court: Mapped[Court] = relationship()
     user: Mapped[User] = relationship(foreign_keys=[user_id])
 
-    __table_args__ = (
-        # FA-06 / NFA-02: höchstens eine bestätigte Buchung je Platz und Slot.
-        Index(
-            "uq_booking_court_slot_confirmed",
-            "court_id",
-            "start_at",
-            unique=True,
-            postgresql_where=text("status = 'confirmed'"),
-        ),
-        CheckConstraint("end_at > start_at", name="ck_booking_time"),
+    __table_args__ = (CheckConstraint("end_at > start_at", name="ck_booking_time"),)
+
+
+# FA-06 / NFA-02: keine zeitliche Überlappung bestätigter Buchungen auf einem Platz.
+Booking.__table__.append_constraint(
+    ExcludeConstraint(
+        (Booking.court_id, "="),
+        (func.tstzrange(Booking.start_at, Booking.end_at, "[)"), "&&"),
+        name="ex_booking_no_overlap",
+        using="gist",
+        where=text("status = 'confirmed'"),
     )
+)
+
+# Für den Ausschluss-Constraint braucht PostgreSQL die Erweiterung btree_gist.
+event.listen(
+    Base.metadata, "before_create", DDL("CREATE EXTENSION IF NOT EXISTS btree_gist")
+)
 
 
 class Block(Base):

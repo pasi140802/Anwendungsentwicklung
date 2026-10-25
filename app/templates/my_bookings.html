@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Meine Buchungen – CourtSlot{% endblock %}
-{% macro booking_item(b, past=False) %}{% set s = b.start_at | local %}{% set e = b.end_at | local %}
+{% macro booking_item(b, past=False) %}{% set s = b.start_at | local %}{% set e = b.end_at | local %}{% set deadline = deadlines.get(b.id) %}
 <li class="booking{% if past %} is-past{% endif %}">
   <div class="datechip" aria-hidden="true">
     <span class="datechip-wd">{{ s | weekday }}</span>
@@ -9,9 +9,10 @@
   </div>
   <div class="booking-main">
     <h3>{{ b.court.name }}, {{ s.strftime('%H:%M') }} bis {{ e.strftime('%H:%M') }} Uhr</h3>
-    <p>{{ s | weekday_long }}, {{ s.day }}. {{ s | month }} {{ s.year }}. {{ sport_label(b.court.sport) }}{% if b.court.surface %} auf {{ b.court.surface }}{% endif %}</p>
+    <p>{{ s | weekday_long }}, {{ s.day }}. {{ s | month }} {{ s.year }}{% if multi_club and clubs.get(b.club_id) %}, {{ clubs[b.club_id].name }}{% endif %}. {{ sport_label(b.court.sport) }}{% if b.court.surface %} auf {{ b.court.surface }}{% endif %}{% if b.price_cents %}, {{ b.price_cents | euro }}{% endif %}</p>
+    {% if not past and deadline %}<p class="booking-note">{% if deadline > now %}Kostenlos stornierbar bis {{ deadline | dt }}{% else %}Stornofrist abgelaufen. Bei Fragen hilft die Vereinsverwaltung.{% endif %}</p>{% endif %}
   </div>
-  {% if not past %}
+  {% if not past and (not deadline or deadline > now) %}
   <form class="booking-act" method="post" action="/buchungen/{{ b.id }}/storno"
         data-confirm-title="Buchung stornieren?" data-confirm-text="{{ b.court.name }}, {{ s | weekday_long }}, {{ s.day }}. {{ s | month }}, {{ s.strftime('%H:%M') }} Uhr. Der Platz wird sofort für andere frei." data-confirm-ok="Stornieren" data-confirm-danger>
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
@@ -25,7 +26,7 @@
 <header class="page-head">
   <div>
     <h1 class="display">Meine Buchungen</h1>
-    <p>Stornieren geht bis zum Beginn des Spiels.</p>
+    <p>{% if multi_club %}Alle deine Spiele, über alle Vereine.{% else %}Deine kommenden und vergangenen Spiele.{% endif %}</p>
   </div>
   <a class="btn btn-primary" href="/kalender">Platz buchen</a>
 </header>

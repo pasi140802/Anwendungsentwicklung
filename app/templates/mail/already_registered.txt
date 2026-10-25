@@ -1,0 +1,12 @@
+{% autoescape false %}Hallo {{ name }},
+
+jemand hat versucht, mit dieser Adresse ein neues CourtSlot-Konto anzulegen. Du hast aber schon eines.
+
+Passwort vergessen? Hier kannst du ein neues festlegen:
+{{ link }}
+
+Warst du das nicht, musst du nichts tun.
+
+-- 
+CourtSlot, {{ base_url }}
+{% endautoescape %}

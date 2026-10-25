@@ -1,0 +1,13 @@
+{% extends "legal/_legal.html" %}
+{% block title %}Impressum – CourtSlot{% endblock %}
+{% block legal %}
+<h1 class="display">Impressum</h1>
+<h2>Angaben nach § 5 DDG</h2>
+<p>{{ operator.name }}<br>{{ operator.address }}</p>
+<h2>Kontakt</h2>
+<p>E-Mail: <a href="mailto:{{ operator.email }}">{{ operator.email }}</a></p>
+<h2>Verantwortlich für den Inhalt</h2>
+<p>{{ operator.name }}, Anschrift wie oben.</p>
+<h2>Inhalte der Vereine</h2>
+<p>Platznamen, Preise, Öffnungszeiten und Sperrgründe tragen die jeweiligen Vereine und Anlagen selbst ein und sind für diese Angaben verantwortlich.</p>
+{% endblock %}

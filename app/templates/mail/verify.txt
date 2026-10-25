@@ -1,0 +1,11 @@
+{% autoescape false %}Hallo {{ name }},
+
+bitte bestätige deine E-Mail-Adresse, damit dein CourtSlot-Konto aktiv wird:
+
+{{ link }}
+
+Der Link gilt 24 Stunden. Wenn du dich nicht registriert hast, ignoriere diese Mail einfach.
+
+-- 
+CourtSlot, {{ base_url }}
+{% endautoescape %}

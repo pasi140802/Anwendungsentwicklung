@@ -1,0 +1,11 @@
+{% extends "_auth_layout.html" %}
+{% block title %}Bestätigungslink anfordern – CourtSlot{% endblock %}
+{% block card %}
+<h2>Neuen Bestätigungslink anfordern</h2>
+<p>Gib die Adresse ein, mit der du dich registriert hast.</p>
+<form method="post" action="/bestaetigung-erneut" class="stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <label class="field">E-Mail-Adresse <input type="email" name="email" required autocomplete="email" autofocus></label>
+  <button type="submit" class="btn btn-court">Link senden</button>
+</form>
+{% endblock %}

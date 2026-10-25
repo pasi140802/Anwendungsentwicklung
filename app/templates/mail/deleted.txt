@@ -1,0 +1,9 @@
+{% autoescape false %}Hallo {{ name }},
+
+dein CourtSlot-Konto ist gelöscht. Name und E-Mail-Adresse sind entfernt, kommende Buchungen storniert.
+
+Danke, dass du CourtSlot genutzt hast.
+
+-- 
+CourtSlot, {{ base_url }}
+{% endautoescape %}

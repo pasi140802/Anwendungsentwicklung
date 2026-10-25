@@ -1,0 +1,14 @@
+# Caddy holt und erneuert das TLS-Zertifikat für $DOMAIN selbstständig.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:8000 {
+		health_uri /health
+	}
+	# Statische Dateien dürfen lange im Browser-Cache liegen (Versionsparameter ?v=)
+	@static path /static/*
+	header @static Cache-Control "public, max-age=604800"
+	log {
+		output stdout
+		format json
+	}
+}

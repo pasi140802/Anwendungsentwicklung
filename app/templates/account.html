@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Mein Konto – CourtSlot{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1 class="display">Mein Konto</h1>
+    <p>{{ user.email }}</p>
+  </div>
+</header>
+
+<div class="account-grid">
+  <section class="panel">
+    <div class="panel-head"><h2>Name</h2><p>So sehen dich Vereinsverwaltung und Mitspieler.</p></div>
+    <form method="post" action="/konto/name" class="panel-body stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <label class="field">Vor- und Nachname <input name="name" value="{{ user.name }}" required maxlength="120" autocomplete="name"></label>
+      <div><button type="submit" class="btn btn-court">Name speichern</button></div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Passwort ändern</h2><p>Andere Geräte werden danach abgemeldet.</p></div>
+    <form method="post" action="/konto/passwort" class="panel-body stack">
+      <input type="hidden" name="csrf_token" value="{{ csrf }}">
+      <label class="field">Aktuelles Passwort <input type="password" name="current" required autocomplete="current-password"></label>
+      <label class="field">Neues Passwort <small>Mindestens 10 Zeichen</small><input type="password" name="password" required minlength="10" autocomplete="new-password"></label>
+      <label class="field">Neues Passwort wiederholen <input type="password" name="password2" required minlength="10" autocomplete="new-password"></label>
+      <div><button type="submit" class="btn btn-court">Passwort ändern</button></div>
+    </form>
+  </section>
+</div>
+
+<section class="panel" style="margin-top:18px">
+  <div class="panel-head"><h2>Meine Vereine</h2></div>
+  <table class="table">
+    <thead><tr><th>Verein</th><th>Rolle</th><th>Status</th><th class="actions"><span class="visually-hidden">Aktionen</span></th></tr></thead>
+    <tbody>
+    {% for m in all_memberships %}
+      <tr>
+        <td><strong>{{ m.club.name }}</strong><span class="util-sub">{{ m.club.city }}</span></td>
+        <td>{{ "Verwaltung" if m.role == "admin" else "Mitglied" }}</td>
+        <td><span class="badge{% if m.status == 'pending' %} badge-off{% elif m.status == 'locked' %} badge-warn{% endif %}">{{ {"active": "aktiv", "pending": "wartet auf Freigabe", "locked": "gesperrt"}[m.status.value] }}</span></td>
+        <td class="actions">
+          <form method="post" action="/konto/verein/{{ m.club_id }}/verlassen"
+                data-confirm-title="{{ m.club.name }} verlassen?" data-confirm-text="Deine kommenden Buchungen dort werden storniert." data-confirm-ok="Verlassen" data-confirm-danger>
+            <input type="hidden" name="csrf_token" value="{{ csrf }}">
+            <button type="submit" class="btn-text danger">{{ "Anfrage zurückziehen" if m.status == "pending" else "Verlassen" }}</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">Noch kein Verein. <a href="/start">Jetzt beitreten oder anlegen</a></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="panel" style="margin-top:18px">
+  <div class="panel-head"><h2>Meine Daten</h2><p>Nach der Datenschutz-Grundverordnung kannst du deine Daten jederzeit herunterladen oder dein Konto löschen.</p></div>
+  <div class="panel-body danger-zone">
+    <div>
+      <h3>Daten herunterladen</h3>
+      <p class="muted">Konto, Mitgliedschaften und Buchungen als JSON-Datei.</p>
+      <a class="btn btn-quiet" href="/konto/export" download>Daten herunterladen</a>
+    </div>
+    <div>
+      <h3>Konto löschen</h3>
+      <p class="muted">Name und E-Mail-Adresse werden gelöscht, kommende Buchungen storniert. Vergangene Buchungen bleiben anonym für die Platzstatistik erhalten.</p>
+      <form method="post" action="/konto/loeschen" class="row-form"
+            data-confirm-title="Konto endgültig löschen?" data-confirm-text="Das lässt sich nicht rückgängig machen." data-confirm-ok="Endgültig löschen" data-confirm-danger>
+        <input type="hidden" name="csrf_token" value="{{ csrf }}">
+        <input class="inline-input" type="password" name="password" required placeholder="Passwort zur Bestätigung" aria-label="Passwort zur Bestätigung" autocomplete="current-password">
+        <button type="submit" class="btn btn-danger btn-small">Konto löschen</button>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

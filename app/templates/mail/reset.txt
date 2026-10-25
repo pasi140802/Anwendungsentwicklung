@@ -1,0 +1,11 @@
+{% autoescape false %}Hallo {{ name }},
+
+hier kannst du ein neues Passwort für CourtSlot festlegen:
+
+{{ link }}
+
+Der Link gilt eine Stunde und funktioniert nur einmal. Hast du kein neues Passwort angefordert, ignoriere diese Mail. Dein bisheriges Passwort bleibt gültig.
+
+-- 
+CourtSlot, {{ base_url }}
+{% endautoescape %}

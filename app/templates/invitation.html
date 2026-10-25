@@ -1,0 +1,25 @@
+{% extends "_auth_layout.html" %}
+{% block title %}Einladung zu {{ inv.club.name }} – CourtSlot{% endblock %}
+{% block pitch %}
+<h1>Du bist eingeladen.</h1>
+<p>{{ inv.club.name }} nutzt CourtSlot für die Platzbuchung.</p>
+{% endblock %}
+{% block card %}
+<h2>{{ inv.club.name }}</h2>
+<p>Einladung für <strong>{{ inv.email }}</strong>{% if inv.role == "admin" %}, mit Zugang zur Vereinsverwaltung{% endif %}.</p>
+{% if user %}
+  {% if user.email == inv.email %}
+  <form method="post" action="/einladung/{{ token }}" class="stack" style="margin-top:20px">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    <button type="submit" class="btn btn-primary">Einladung annehmen</button>
+  </form>
+  {% else %}
+  <p class="form-error" role="alert" style="margin-top:16px"><span>Du bist als {{ user.email }} angemeldet. Die Einladung gilt für {{ inv.email }}. Melde dich ab und mit der eingeladenen Adresse wieder an.</span></p>
+  {% endif %}
+{% else %}
+<div class="stack" style="margin-top:20px">
+  <a class="btn btn-primary" href="/registrieren?invite={{ token }}&amp;email={{ inv.email | urlencode }}">Konto erstellen und beitreten</a>
+  <a class="btn btn-quiet" href="/login?next={{ ('/einladung/' ~ token) | urlencode }}">Ich habe schon ein Konto</a>
+</div>
+{% endif %}
+{% endblock %}

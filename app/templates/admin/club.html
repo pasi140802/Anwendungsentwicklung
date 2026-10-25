@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Verein – CourtSlot{% endblock %}
+{% block content %}
+{% set active = "verein" %}{% include "admin/_nav.html" %}
+{%- set hours = {} -%}{% for h in club.hours %}{% set _ = hours.update({h.weekday: h}) %}{% endfor -%}
+{%- set wd = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"] -%}
+<form method="post" action="/admin/verein" class="settings">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+
+  <section class="panel">
+    <div class="panel-head"><h2>Stammdaten</h2><p>Erscheinen in Mails an Mitglieder.</p></div>
+    <div class="panel-body formgrid">
+      <label class="field span-2">Name <input name="name" value="{{ club.name }}" required maxlength="120"></label>
+      <fieldset class="field segmented span-2">
+        <legend>Art</legend>
+        <label><input type="radio" name="kind" value="club" {% if club.kind == "club" %}checked{% endif %}><span>Verein</span></label>
+        <label><input type="radio" name="kind" value="facility" {% if club.kind == "facility" %}checked{% endif %}><span>Gewerbliche Anlage</span></label>
+      </fieldset>
+      <label class="field span-2">Straße und Hausnummer <input name="street" value="{{ club.street or '' }}" maxlength="120"></label>
+      <label class="field">PLZ <input name="zip_code" value="{{ club.zip_code or '' }}" maxlength="10" inputmode="numeric"></label>
+      <label class="field">Ort <input name="city" value="{{ club.city or '' }}" maxlength="80"></label>
+      <label class="field span-2">Kontakt für Mitglieder <small>E-Mail-Adresse für Rückfragen</small><input type="email" name="contact_email" value="{{ club.contact_email or '' }}" maxlength="254"></label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Öffnungszeiten</h2><p>Bestimmen, ab wann und bis wann Slots im Kalender erscheinen. Ein Slot muss vor Schluss enden.</p></div>
+    <table class="table hours">
+      <thead><tr><th>Tag</th><th>Öffnet</th><th>Schließt</th><th>Geschlossen</th></tr></thead>
+      <tbody>
+      {% for d in range(7) %}{% set h = hours.get(d) %}
+        <tr>
+          <th scope="row">{{ wd[d] }}</th>
+          <td><input class="inline-input" type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" placeholder="hh:mm" name="opens_{{ d }}" value="{{ (h.opens if h else 480) | hm }}" aria-label="{{ wd[d] }} öffnet"></td>
+          <td><input class="inline-input" type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" placeholder="hh:mm" name="closes_{{ d }}" value="{{ (h.closes if h else 1320) | hm }}" aria-label="{{ wd[d] }} schließt"></td>
+          <td><label class="check"><input type="checkbox" name="closed_{{ d }}" {% if h and h.is_closed %}checked{% endif %}><span class="visually-hidden">{{ wd[d] }} geschlossen</span></label></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Saison und Hauptzeit</h2><p>Plätze mit „nur Sommer“ oder „nur Winter“ sind außerhalb ihrer Saison nicht buchbar. In der Hauptzeit gilt der Hauptzeitpreis eines Platzes.</p></div>
+    <div class="panel-body formgrid">
+      <label class="field">Sommersaison ab <small>Tag und Monat, z. B. 15.04.</small><input name="summer_start" value="{{ club.summer_start.strftime('%d.%m.') }}" required maxlength="6" inputmode="decimal"></label>
+      <label class="field">Sommersaison bis <small>danach beginnt die Wintersaison</small><input name="summer_end" value="{{ club.summer_end.strftime('%d.%m.') }}" required maxlength="6" inputmode="decimal"></label>
+      <label class="field">Hauptzeit von <small>leer lassen, wenn es keine gibt</small><input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" placeholder="hh:mm" name="prime_from" value="{{ club.prime_from | hm }}"></label>
+      <label class="field">Hauptzeit bis <input type="text" inputmode="numeric" pattern="[0-2][0-9]:[0-5][0-9]" maxlength="5" placeholder="hh:mm" name="prime_to" value="{{ club.prime_to | hm }}"></label>
+    </div>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Buchungsregeln</h2><p>Damit beliebte Abendzeiten fair verteilt werden. Änderungen gelten für neue Buchungen.</p></div>
+    <div class="panel-body formgrid formgrid-3">
+      <label class="field">Aktive Buchungen pro Mitglied
+        <small>Kommende Spiele gleichzeitig</small>
+        <span class="stepper"><input type="number" name="max_active" min="1" max="20" value="{{ club.max_active_bookings }}" required></span>
+      </label>
+      <label class="field">Vorlauf in Tagen
+        <small>Wie weit im Voraus gebucht werden kann</small>
+        <span class="stepper"><input type="number" name="max_days" min="1" max="60" value="{{ club.max_days_ahead }}" required></span>
+      </label>
+      <label class="field">Stornofrist in Stunden
+        <small>0 heißt: bis Spielbeginn</small>
+        <span class="stepper"><input type="number" name="cancel_hours" min="0" max="72" value="{{ club.cancel_hours }}" required></span>
+      </label>
+    </div>
+  </section>
+
+  <div class="savebar"><button type="submit" class="btn btn-primary">Einstellungen speichern</button></div>
+</form>
+{% endblock %}

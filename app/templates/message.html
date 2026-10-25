@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ title }} – CourtSlot{% endblock %}
+{% block content %}
+<section class="notice">
+  <h1 class="display" style="font-size:1.8rem">{{ title }}</h1>
+  <p>{{ message }}</p>
+  {% if action %}<a class="btn btn-court" href="{{ action[0] }}">{{ action[1] }}</a>{% endif %}
+</section>
+{% endblock %}

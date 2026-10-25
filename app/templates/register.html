@@ -1,0 +1,34 @@
+{% extends "_auth_layout.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Registrieren – CourtSlot{% endblock %}
+{% block pitch %}
+<h1>Ein Konto für alle deine Vereine.</h1>
+<p>Registriere dich einmal und tritt deinem Verein mit dessen Beitrittscode oder einer Einladung bei. Oder leg deinen eigenen Verein an.</p>
+{% endblock %}
+{% block card %}
+<h2>Konto erstellen</h2>
+<p>Schon registriert? <a href="/login{% if next %}?next={{ next | urlencode }}{% endif %}">Anmelden</a></p>
+{% if error %}<p class="form-error" role="alert">{{ icon("alert", 20) }}<span>{{ error }}</span></p>{% endif %}
+<form method="post" action="/registrieren" class="stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+  {% if invite %}<input type="hidden" name="invite" value="{{ invite }}">{% endif %}
+  <label class="field">Vor- und Nachname
+    <input name="name" value="{{ form.name or '' }}" required autocomplete="name" maxlength="120">
+  </label>
+  <label class="field">E-Mail-Adresse
+    <input type="email" name="email" value="{{ form.email or '' }}" required autocomplete="email">
+  </label>
+  <label class="field">Passwort <small>Mindestens 10 Zeichen</small>
+    <input type="password" name="password" required minlength="10" autocomplete="new-password">
+  </label>
+  <label class="field">Passwort wiederholen
+    <input type="password" name="password2" required minlength="10" autocomplete="new-password">
+  </label>
+  <label class="check">
+    <input type="checkbox" name="consent" required>
+    <span>Ich habe die <a href="/datenschutz" target="_blank">Datenschutzerklärung</a> gelesen.</span>
+  </label>
+  <button type="submit" class="btn btn-court">Konto erstellen</button>
+</form>
+{% endblock %}

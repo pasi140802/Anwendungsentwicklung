@@ -1,0 +1,12 @@
+{% extends "_auth_layout.html" %}
+{% block title %}Passwort vergessen – CourtSlot{% endblock %}
+{% block card %}
+<h2>Passwort vergessen?</h2>
+<p>Wir schicken dir einen Link, mit dem du ein neues Passwort festlegst.</p>
+<form method="post" action="/passwort-vergessen" class="stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <label class="field">E-Mail-Adresse <input type="email" name="email" required autocomplete="email" autofocus></label>
+  <button type="submit" class="btn btn-court">Link senden</button>
+</form>
+<p class="muted" style="margin-top:16px"><a href="/login">Zurück zur Anmeldung</a></p>
+{% endblock %}

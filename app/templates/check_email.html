@@ -1,0 +1,13 @@
+{% extends "_auth_layout.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Postfach prüfen – CourtSlot{% endblock %}
+{% block card %}
+<h2>Schau in dein Postfach</h2>
+{% if purpose == "reset" %}
+<p>Falls zu <strong>{{ email }}</strong> ein Konto existiert, ist ein Link zum Zurücksetzen des Passworts unterwegs. Er ist eine Stunde gültig.</p>
+{% else %}
+<p>Wir haben eine Mail an <strong>{{ email }}</strong> geschickt. Klick auf den Link darin, um deine Adresse zu bestätigen. Er ist 24 Stunden gültig.</p>
+{% endif %}
+<p class="muted" style="margin-top:16px">Nichts angekommen? Prüf den Spam-Ordner oder <a href="{{ '/passwort-vergessen' if purpose == 'reset' else '/bestaetigung-erneut' }}">fordere einen neuen Link an</a>.</p>
+<a class="btn btn-quiet" style="margin-top:20px" href="/login">Zur Anmeldung</a>
+{% endblock %}

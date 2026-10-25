@@ -72,8 +72,37 @@ def pop_flashes(request: Request) -> list[dict]:
     return request.session.pop("flash", [])
 
 
+def euro(cents: int | None) -> str:
+    if cents is None:
+        return ""
+    value = f"{cents / 100:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    # geschütztes Leerzeichen: Betrag und Währung werden nie getrennt
+    return value[:-3] + "\u00a0€" if value.endswith(",00") else value + "\u00a0€"
+
+
+def hm(minutes: int | None) -> str:
+    if minutes is None:
+        return ""
+    return f"{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+def num(value: float, digits: int = 1) -> str:
+    """Zahl mit deutschem Komma, ohne überflüssige Nachkommastelle (1,5 / 12)."""
+    text = f"{value:.{digits}f}".replace(".", ",")
+    return text.rstrip("0").rstrip(",") if "," in text else text
+
+
+templates.env.filters["euro"] = euro
+templates.env.filters["num"] = num
+templates.env.filters["hm"] = hm
+
+
 def render(request: Request, template: str, status_code: int = 200, **context) -> HTMLResponse:
-    context.setdefault("user", None)
+    state = request.state
+    context.setdefault("user", getattr(state, "user", None))
+    context.setdefault("member", getattr(state, "member", None))
+    context.setdefault("memberships", getattr(state, "memberships", []))
+    context.setdefault("pending_count", getattr(state, "pending_count", 0))
     context["request"] = request
     context["csrf"] = csrf_token(request)
     context["flashes"] = pop_flashes(request)

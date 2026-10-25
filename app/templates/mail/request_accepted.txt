@@ -1,0 +1,9 @@
+{% autoescape false %}Hallo {{ name }},
+
+willkommen bei {{ club }}! Deine Anfrage wurde angenommen, du kannst ab sofort Plätze buchen:
+
+{{ link }}
+
+-- 
+CourtSlot, {{ base_url }}
+{% endautoescape %}

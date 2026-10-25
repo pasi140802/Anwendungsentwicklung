@@ -1,0 +1,92 @@
+# Zielbetrieb auf einem einzelnen Server (Stufe 1, siehe docs/BETRIEB.md).
+#   cp .env.example .env   # Werte eintragen
+#   docker compose -f docker-compose.prod.yml up -d --build
+x-app: &app
+  build: .
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql+psycopg://courtslot:${POSTGRES_PASSWORD:?}@db:5432/courtslot
+    SECURE_COOKIES: "true"
+    BASE_URL: https://${DOMAIN:?}
+  restart: unless-stopped
+  logging: &logging
+    driver: json-file
+    options: {max-size: "10m", max-file: "5"}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: courtslot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+      POSTGRES_DB: courtslot
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U courtslot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    logging: *logging
+
+  # Migrationen laufen bei jedem Start vor der App (ohne Demo-Daten)
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      db: {condition: service_healthy}
+
+  app:
+    <<: *app
+    environment:
+      DATABASE_URL: postgresql+psycopg://courtslot:${POSTGRES_PASSWORD:?}@db:5432/courtslot
+      SECURE_COOKIES: "true"
+      BASE_URL: https://${DOMAIN:?}
+      FORWARDED_ALLOW_IPS: "*"   # nur Caddy im internen Netz erreicht die App
+    expose: ["8000"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+
+  # Tägliche Wartung: unbestätigte Konten nach 7 Tagen löschen
+  maintenance:
+    <<: *app
+    command: ["sh", "-c", "while true; do python -m scripts.maintenance; sleep 86400; done"]
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+
+  # TLS-Zertifikate (Let's Encrypt) und Weiterleitung auf HTTPS automatisch
+  caddy:
+    image: caddy:2-alpine
+    ports: ["80:80", "443:443", "443:443/udp"]
+    environment:
+      DOMAIN: ${DOMAIN:?}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [app]
+    restart: unless-stopped
+    logging: *logging
+
+  # Nächtliche Sicherung, 14 Tage aufbewahrt (Kopie außer Haus: siehe BETRIEB.md)
+  backup:
+    image: postgres:16-alpine
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:?}
+      BACKUP_KEEP_DAYS: "14"
+    volumes:
+      - ./deploy/backup.sh:/backup.sh:ro
+      - backups:/backups
+    entrypoint: ["sh", "-c", "while true; do sh /backup.sh; sleep 86400; done"]
+    depends_on:
+      db: {condition: service_healthy}
+    restart: unless-stopped
+    logging: *logging
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+  backups:

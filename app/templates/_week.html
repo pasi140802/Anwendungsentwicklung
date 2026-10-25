@@ -1,6 +1,7 @@
 {% from "_icons.html" import icon %}
 {%- if oob %}<div id="flashes" class="toasts" aria-live="polite" hx-swap-oob="true">{% include "_flashes.html" %}</div>{% endif %}
 {%- set sunday = days[-1].day -%}
+{%- set is_admin = member.is_admin -%}
 <section id="week" class="week" hx-target="#week" hx-swap="outerHTML">
   <header class="week-head">
     <div class="week-title">
@@ -22,7 +23,7 @@
     {% if next_booking %}{% set nb = next_booking.start_at | local %}
     <p class="next">Nächstes Spiel: <strong>{{ nb | weekday_long }}, {{ nb.day }}. {{ nb | month }}, {{ nb.strftime('%H:%M') }} Uhr</strong> auf {{ next_booking.court.name }}</p>
     {% else %}
-    <p class="next">Buchbar bis {{ club.max_days_ahead }} Tage im Voraus</p>
+    <p class="next">Buchbar bis {{ club.max_days_ahead }} Tage im Voraus{% if club.cancel_hours %}, stornierbar bis {{ club.cancel_hours }} Stunden vor Beginn{% endif %}</p>
     {% endif %}
   </div>
 
@@ -30,69 +31,82 @@
   <div class="empty">
     <h2>Noch keine Plätze angelegt</h2>
     <p>Sobald die Vereinsverwaltung Plätze anlegt, erscheinen sie hier.</p>
-    {% if user.is_admin %}<a class="btn btn-primary" href="/admin/plaetze">Plätze anlegen</a>{% endif %}
+    {% if is_admin %}<a class="btn btn-primary" href="/admin/plaetze">Plätze anlegen</a>{% endif %}
   </div>
   {% else %}
   <div class="days" role="tablist" aria-label="Tag wählen">
-    {% for d in days %}
-    {%- set ns = namespace(free=0) -%}
-    {%- for hour, cells in d.rows %}{% for c in cells %}{% if c.state == "free" %}{% set ns.free = ns.free + 1 %}{% endif %}{% endfor %}{% endfor -%}
-    {%- set iso = d.day.isoformat() -%}
+    {% for d in days %}{% set iso = d.day.isoformat() %}{% set free = d.free_count %}
     <button type="button" role="tab" id="tab-{{ iso }}" aria-controls="day-{{ iso }}" aria-selected="{{ 'true' if d.day == selected else 'false' }}" tabindex="{{ '0' if d.day == selected else '-1' }}" data-day="{{ iso }}"
-            class="daytab{% if d.day == today %} is-today{% endif %}{% if not ns.free %} is-full{% endif %}">
+            class="daytab{% if d.day == today %} is-today{% endif %}{% if not free %} is-full{% endif %}">
       <span class="daytab-wd">{{ d.day | weekday }}{% if d.day == today %}<span class="visually-hidden">, heute</span>{% endif %}</span>
       <span class="daytab-num">{{ d.day.day }}</span>
-      <span class="daytab-free">{% if ns.free %}{{ ns.free }} frei{% else %}keine frei{% endif %}</span>
+      <span class="daytab-free">{% if d.closed %}geschlossen{% elif free %}{{ free }} frei{% else %}keine frei{% endif %}</span>
     </button>
     {% endfor %}
   </div>
 
   {% for d in days %}{% set iso = d.day.isoformat() %}
   <div class="daypanel" role="tabpanel" id="day-{{ iso }}" aria-labelledby="tab-{{ iso }}" {% if d.day != selected %}hidden{% endif %}>
-    <h2 class="daypanel-title">{{ d.day | weekday_long }}, {{ d.day.day }}. {{ d.day | month }}</h2>
-    <div class="slots-wrap">
-      <table class="slots">
-        <thead>
-          <tr>
-            <th scope="col" class="slots-time"><span class="visually-hidden">Uhrzeit</span></th>
-            {% for c in courts %}<th scope="col"><span class="court-name">{{ c.name }}</span><span class="court-meta">{{ sport_label(c.sport) }}{% if c.surface %}, {{ c.surface }}{% endif %}</span></th>{% endfor %}
-          </tr>
-        </thead>
-        <tbody>
-        {% for hour, cells in d.rows %}
-          {%- set when = (d.day | weekday_long) ~ ", " ~ d.day.day ~ ". " ~ (d.day | month) ~ ", " ~ ('%02d' % hour) ~ ":00 bis " ~ ('%02d' % (hour + 1)) ~ ":00 Uhr" -%}
-          <tr{% if cells and cells[0].is_past %} class="is-past"{% endif %}>
-            <th scope="row" class="slots-time">{{ '%02d' % hour }}<span>:00</span></th>
-            {% for cell in cells %}
-            <td class="slot slot-{{ cell.state }}" data-slot="{{ cell.court.id }}-{{ cell.start.isoformat() }}">
-              {%- if cell.state == "free" -%}
-              <button class="slot-btn" hx-post="/buchungen" hx-vals='{"court_id": {{ cell.court.id }}, "start": "{{ cell.start.isoformat() }}"}'
-                      hx-confirm="buchen" data-confirm-title="{{ cell.court.name }} buchen?" data-confirm-text="{{ when }}" data-confirm-ok="Jetzt buchen"
-                      aria-label="{{ cell.court.name }}, {{ '%02d' % hour }}:00 Uhr buchen">frei</button>
-              {%- elif cell.state == "own" and cell.is_past -%}
-              <span>Du</span>
-              {%- elif cell.state == "own" -%}
-              <button class="slot-btn" hx-post="/buchungen/{{ cell.booking_id }}/storno" hx-vals='{"back": "/kalender"}'
-                      hx-confirm="stornieren" data-confirm-title="Buchung stornieren?" data-confirm-text="{{ cell.court.name }}, {{ when }}. Der Platz wird sofort für andere frei." data-confirm-ok="Stornieren" data-confirm-danger
-                      aria-label="Deine Buchung {{ cell.court.name }}, {{ '%02d' % hour }}:00 Uhr stornieren">Du</button>
-              {%- elif cell.state == "booked" and user.is_admin and not cell.is_past -%}
-              <button class="slot-btn" hx-post="/buchungen/{{ cell.booking_id }}/storno" hx-vals='{"back": "/kalender"}'
-                      hx-confirm="stornieren" data-confirm-title="Buchung von {{ cell.label }} stornieren?" data-confirm-text="{{ cell.court.name }}, {{ when }}." data-confirm-ok="Stornieren" data-confirm-danger
-                      title="{{ cell.label }}" aria-label="Buchung von {{ cell.label }} stornieren">{{ cell.label }}</button>
-              {%- elif cell.state == "booked" -%}
-              <span title="{{ cell.label }}">{{ cell.label if user.is_admin else "belegt" }}</span>
-              {%- elif cell.state == "blocked" -%}
-              <span title="Gesperrt: {{ cell.label }}">{{ cell.label }}</span>
-              {%- else -%}
-              <span class="visually-hidden">nicht buchbar</span>
-              {%- endif -%}
-            </td>
-            {% endfor %}
-          </tr>
+    <h2 class="daypanel-title">{{ d.day | weekday_long }}, {{ d.day.day }}. {{ d.day | month }}{% if not d.closed %}<span>{{ d.opens | hm }} bis {{ d.closes | hm }} Uhr</span>{% endif %}</h2>
+    {% if d.closed %}
+    <p class="closed-note">An diesem Tag ist die Anlage geschlossen.</p>
+    {% else %}
+    {%- set rows = (d.closes - d.opens) // 15 -%}
+    {%- set lead = ((60 - d.opens % 60) % 60) // 15 -%}
+    <div class="timeline-wrap">
+      <div class="timeline" style="--cols: {{ courts | length }}; --rows: {{ rows }}; --lead: {{ lead }}">
+        <div class="tl-corner" aria-hidden="true"></div>
+        {% for col in d.columns %}
+        <div class="tl-court" style="grid-column: {{ loop.index + 1 }}">
+          <span class="court-name">{{ col.court.name }}</span>
+          <span class="court-meta">{{ sport_label(col.court.sport) }}, {{ col.court.slot_minutes }} Min.{% if col.court.is_indoor %}, Halle{% endif %}</span>
+        </div>
         {% endfor %}
-        </tbody>
-      </table>
+        <div class="tl-lines" aria-hidden="true"></div>
+        {% for h in range((d.opens + 59) // 60, (d.closes - 1) // 60 + 1) %}
+        <div class="tl-hour" style="grid-row: {{ (h * 60 - d.opens) // 15 + 2 }}" aria-hidden="true">{{ '%02d' % h }}<span>:00</span></div>
+        {% endfor %}
+        {% for col in d.columns %}{% set ci = loop.index + 1 %}
+          {% if col.note %}
+          <div class="tl-note" style="grid-column: {{ ci }}; grid-row: 2 / span {{ rows }}"><span>{{ col.note }}</span></div>
+          {% endif %}
+          {% for cell in col.cells %}
+          {%- set m = cell.start.hour * 60 + cell.start.minute -%}
+          {%- set span_txt = cell.start.strftime('%H:%M') ~ "–" ~ cell.end.strftime('%H:%M') -%}
+          {%- set when = (d.day | weekday_long) ~ ", " ~ d.day.day ~ ". " ~ (d.day | month) ~ ", " ~ cell.start.strftime('%H:%M') ~ " bis " ~ cell.end.strftime('%H:%M') ~ " Uhr" -%}
+          <div class="slot slot-{{ cell.state }}{% if cell.is_past %} is-past{% endif %}" style="grid-column: {{ ci }}; grid-row: {{ (m - d.opens) // 15 + 2 }} / span {{ col.court.slot_minutes // 15 }}" data-slot="{{ cell.court.id }}-{{ cell.start.isoformat() }}">
+            {%- if cell.state == "free" -%}
+            <button class="slot-btn" hx-post="/buchungen" hx-vals='{"court_id": {{ cell.court.id }}, "start": "{{ cell.start.isoformat() }}"}'
+                    hx-confirm="buchen" data-confirm-title="{{ cell.court.name }} buchen?" data-confirm-text="{{ when }}.{% if cell.price_cents %} Preis {{ cell.price_cents | euro }}, Bezahlung beim Verein.{% endif %}" data-confirm-ok="Jetzt buchen"
+                    aria-label="{{ cell.court.name }}, {{ when }} buchen{% if cell.price_cents %}, {{ cell.price_cents | euro }}{% endif %}">
+              <span class="slot-time">{{ span_txt }}</span><span class="slot-label">{{ cell.price_cents | euro if cell.price_cents else "frei" }}</span></button>
+            {%- elif cell.state == "own" and not cell.is_past -%}
+            <button class="slot-btn" hx-post="/buchungen/{{ cell.booking_id }}/storno" hx-vals='{"back": "/kalender"}'
+                    hx-confirm="stornieren" data-confirm-title="Buchung stornieren?" data-confirm-text="{{ cell.court.name }}, {{ when }}. Der Platz wird sofort für andere frei." data-confirm-ok="Stornieren" data-confirm-danger
+                    aria-label="Deine Buchung {{ cell.court.name }}, {{ when }} stornieren">
+              <span class="slot-time">{{ span_txt }}</span><span class="slot-label">Du</span></button>
+            {%- elif cell.state == "own" -%}
+            <span class="slot-time">{{ span_txt }}</span><span class="slot-label">Du</span>
+            {%- elif cell.state == "booked" and is_admin and not cell.is_past -%}
+            <button class="slot-btn" hx-post="/buchungen/{{ cell.booking_id }}/storno" hx-vals='{"back": "/kalender"}'
+                    hx-confirm="stornieren" data-confirm-title="Buchung von {{ cell.label }} stornieren?" data-confirm-text="{{ cell.court.name }}, {{ when }}. {{ cell.label }} bekommt eine Mail." data-confirm-ok="Stornieren" data-confirm-danger
+                    title="{{ cell.label }}" aria-label="Buchung von {{ cell.label }}, {{ when }} stornieren">
+              <span class="slot-time">{{ span_txt }}</span><span class="slot-label">{{ cell.label }}</span></button>
+            {%- elif cell.state == "booked" -%}
+            <span class="slot-time">{{ span_txt }}</span><span class="slot-label" title="{{ cell.label }}">{{ cell.label if is_admin else "belegt" }}</span>
+            {%- elif cell.state == "blocked" -%}
+            <span class="slot-time">{{ span_txt }}</span><span class="slot-label" title="Gesperrt: {{ cell.label }}">{{ cell.label }}</span>
+            {%- elif cell.state == "later" -%}
+            <span class="slot-time">{{ span_txt }}</span><span class="visually-hidden">noch nicht buchbar</span>
+            {%- else -%}
+            <span class="visually-hidden">{{ span_txt }}, vorbei</span>
+            {%- endif -%}
+          </div>
+          {% endfor %}
+        {% endfor %}
+      </div>
     </div>
+    {% endif %}
   </div>
   {% endfor %}
 
@@ -101,6 +115,7 @@
     <li><span class="sw sw-own"></span>deine Buchung</li>
     <li><span class="sw sw-booked"></span>belegt</li>
     <li><span class="sw sw-blocked"></span>gesperrt</li>
+    <li><span class="sw sw-later"></span>noch nicht buchbar</li>
   </ul>
   {% endif %}
 </section>

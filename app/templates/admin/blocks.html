@@ -12,8 +12,8 @@
     <label class="field">Platz
       <select name="court_id">{% for c in courts if c.is_active %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}</select>
     </label>
-    <label class="field">Von <input type="datetime-local" name="start" step="3600" required></label>
-    <label class="field">Bis <input type="datetime-local" name="end" step="3600" required></label>
+    <label class="field">Von <input type="datetime-local" name="start" step="900" required></label>
+    <label class="field">Bis <input type="datetime-local" name="end" step="900" required></label>
     <label class="field grow">Grund <input name="reason" required placeholder="Medenspiel Herren 40"></label>
     <button type="submit" class="btn btn-court">Sperren</button>
   </form>

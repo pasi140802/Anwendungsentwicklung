@@ -1,5 +1,6 @@
 {% from "_icons.html" import icon, logo %}
 {%- set path = request.url.path -%}
+{%- set is_admin = member is not none and member.is_admin -%}
 <!doctype html>
 <html lang="de">
 <head>
@@ -12,23 +13,37 @@
   <script src="/static/htmx.min.js" defer></script>
   <script src="/static/app.js?v={{ asset_v }}" defer></script>
 </head>
-<body class="{{ 'has-user' if user else 'no-user' }}" hx-headers='{"X-CSRF-Token": "{{ csrf }}"}'>
+<body class="{{ 'has-user' if user else 'no-user' }}{% if user and member %} has-member{% endif %}" hx-headers='{"X-CSRF-Token": "{{ csrf }}"}'>
   <a class="skip" href="#main">Zum Inhalt springen</a>
   {% if user %}
   <header class="topbar">
     <a class="brand" href="/kalender" aria-label="CourtSlot, zum Kalender">{{ logo() }}<span>CourtSlot</span></a>
+    {% if member %}
     <nav class="mainnav" aria-label="Hauptnavigation">
       <a href="/kalender" {% if path.startswith('/kalender') %}aria-current="page"{% endif %}>Kalender</a>
       <a href="/meine-buchungen" {% if path.startswith('/meine-buchungen') %}aria-current="page"{% endif %}>Meine Buchungen</a>
-      {% if user.is_admin %}<a href="/admin/plaetze" {% if path.startswith('/admin') %}aria-current="page"{% endif %}>Verwaltung</a>{% endif %}
+      {% if is_admin %}<a href="/admin/plaetze" {% if path.startswith('/admin') %}aria-current="page"{% endif %}>Verwaltung</a>{% endif %}
     </nav>
+    {% endif %}
     <details class="usermenu">
       <summary aria-label="Konto von {{ user.name }}">
         <span class="avatar" aria-hidden="true">{{ user.name | initials }}</span>
-        <span class="usermenu-name">{{ user.name }}</span>
+        <span class="usermenu-name">{{ user.name }}{% if member %}<small>{{ member.club.name }}</small>{% endif %}</span>
       </summary>
       <div class="usermenu-panel">
-        <p class="usermenu-who"><strong>{{ user.name }}</strong><span>{{ user.club.name }}, {{ "Admin" if user.is_admin else "Mitglied" }}</span></p>
+        <p class="usermenu-who"><strong>{{ user.name }}</strong><span>{{ user.email }}</span></p>
+        {% if memberships | length > 1 %}
+        <p class="usermenu-label">Verein wechseln</p>
+        {% for m in memberships %}
+        <form method="post" action="/verein/wechseln">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <input type="hidden" name="club_id" value="{{ m.club_id }}">
+          <button type="submit" class="menu-action{% if member and m.club_id == member.club_id %} is-current{% endif %}" {% if member and m.club_id == member.club_id %}aria-current="true"{% endif %}>{{ icon("court", 18) }}{{ m.club.name }}</button>
+        </form>
+        {% endfor %}
+        {% endif %}
+        <a class="menu-action" href="/start">{{ icon("plus", 18) }}Verein beitreten oder anlegen</a>
+        <a class="menu-action" href="/konto">{{ icon("users", 18) }}Mein Konto</a>
         <form method="post" action="/logout">
           <input type="hidden" name="csrf_token" value="{{ csrf }}">
           <button type="submit" class="menu-action">{{ icon("logout", 18) }}Abmelden</button>
@@ -42,11 +57,15 @@
     {% block content %}{% endblock %}
   </main>
 
-  {% if user %}
+  {% block footer %}
+  <footer class="sitefoot"><a href="/impressum">Impressum</a><a href="/datenschutz">Datenschutz</a></footer>
+  {% endblock %}
+
+  {% if user and member %}
   <nav class="tabbar" aria-label="Navigation">
     <a href="/kalender" {% if path.startswith('/kalender') %}aria-current="page"{% endif %}>{{ icon("calendar", 22) }}<span>Kalender</span></a>
     <a href="/meine-buchungen" {% if path.startswith('/meine-buchungen') %}aria-current="page"{% endif %}>{{ icon("ticket", 22) }}<span>Buchungen</span></a>
-    {% if user.is_admin %}<a href="/admin/plaetze" {% if path.startswith('/admin') %}aria-current="page"{% endif %}>{{ icon("settings", 22) }}<span>Verwaltung</span></a>{% endif %}
+    {% if is_admin %}<a href="/admin/plaetze" {% if path.startswith('/admin') %}aria-current="page"{% endif %}>{{ icon("settings", 22) }}<span>Verwaltung</span></a>{% endif %}
   </nav>
   {% endif %}
 

@@ -1,0 +1,8 @@
+{% extends "mail/_layout.html" %}
+{% block body %}
+<p>Hallo {{ name }},</p>
+<p>hier kannst du ein neues Passwort für CourtSlot festlegen.</p>
+<p style="margin:24px 0"><a href="{{ link }}" style="display:inline-block;background:#dff04b;color:#0e2350;font-weight:bold;text-decoration:none;padding:12px 20px;border-radius:10px;border:1px solid #c6d82c">Neues Passwort festlegen</a></p>
+<p style="font-size:13px;color:#4a5872">Falls der Knopf nicht funktioniert: <a href="{{ link }}" style="color:#1f4e9c;word-break:break-all">{{ link }}</a></p>
+<p>Der Link gilt eine Stunde und funktioniert nur einmal. Hast du kein neues Passwort angefordert, ignoriere diese Mail. Dein bisheriges Passwort bleibt gültig.</p>
+{% endblock %}

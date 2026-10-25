@@ -118,6 +118,13 @@
     armToasts();
   });
 
+  // Auswahlfelder mit data-autosubmit senden ihr Formular sofort ab (z. B. Rolle).
+  document.addEventListener("change", function (e) {
+    if (e.target.matches && e.target.matches("select[data-autosubmit]")) {
+      e.target.form.requestSubmit();
+    }
+  });
+
   // Benutzermenü schließt bei Klick außerhalb.
   document.addEventListener("click", function (e) {
     document.querySelectorAll("details.usermenu[open]").forEach(function (d) {

@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_icons.html" import icon %}
+{% block title %}Verein anlegen – CourtSlot{% endblock %}
+{% block content %}
+<header class="page-head">
+  <div>
+    <h1 class="display">Verein anlegen</h1>
+    <p>Du wirst automatisch Teil der Verwaltung. Öffnungszeiten, Plätze und Regeln richtest du im nächsten Schritt ein.</p>
+  </div>
+</header>
+<section class="panel" style="max-width:720px">
+  <form method="post" action="/verein/neu" class="panel-body stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    {% if error %}<p class="form-error" role="alert">{{ icon("alert", 20) }}<span>{{ error }}</span></p>{% endif %}
+    <label class="field">Name
+      <input name="name" value="{{ form.name or '' }}" required maxlength="120" placeholder="TC Grün-Weiß Musterstadt">
+    </label>
+    <fieldset class="field segmented">
+      <legend>Art</legend>
+      <label><input type="radio" name="kind" value="club" {% if form.kind != 'facility' %}checked{% endif %}><span>Verein</span></label>
+      <label><input type="radio" name="kind" value="facility" {% if form.kind == 'facility' %}checked{% endif %}><span>Gewerbliche Anlage</span></label>
+    </fieldset>
+    <label class="field">Straße und Hausnummer <input name="street" value="{{ form.street or '' }}" maxlength="120" autocomplete="street-address"></label>
+    <div class="row-2">
+      <label class="field">PLZ <input name="zip_code" value="{{ form.zip_code or '' }}" maxlength="10" inputmode="numeric" autocomplete="postal-code"></label>
+      <label class="field">Ort <input name="city" value="{{ form.city or '' }}" required maxlength="80" autocomplete="address-level2"></label>
+    </div>
+    <div><button type="submit" class="btn btn-primary">Verein anlegen</button></div>
+  </form>
+</section>
+{% endblock %}

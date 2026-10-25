@@ -1,0 +1,7 @@
+{% extends "mail/_layout.html" %}
+{% block body %}
+<p>Hallo {{ name }},</p>
+<p>die Verwaltung von {{ club }} hat deine Buchung storniert:</p>
+<p style="margin:16px 0;padding:14px 18px;background:#fbe9e7;border-radius:10px"><strong>{{ court }}</strong>, {{ when }}{% if reason %}<br>Grund: {{ reason }}{% endif %}</p>
+<p>Im <a href="{{ base_url }}/kalender" style="color:#1f4e9c">Kalender</a> findest du freie Alternativen.</p>
+{% endblock %}

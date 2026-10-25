@@ -1,4 +1,6 @@
-# Start des Prototyps mit einem Befehl (NFA-10):  docker compose up --build
+# Lokaler Start mit einem Befehl (NFA-10):  docker compose up --build
+#   App:    http://localhost:8000   (Demo-Konten siehe README)
+#   Mails:  http://localhost:8025   (Mailpit fängt alle Mails ab, z. B. Bestätigungslinks)
 services:
   db:
     image: postgres:16-alpine
@@ -14,7 +16,13 @@ services:
       timeout: 3s
       retries: 20
 
-  seed:
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+
+  # Schema per Migration auf Stand bringen, danach Demo-Daten (nur in leerer DB)
+  migrate:
     build: .
     command: ["python", "-m", "scripts.seed"]
     environment:
@@ -30,9 +38,15 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://courtslot:courtslot@db:5432/courtslot
       SECRET_KEY: ${SECRET_KEY:-lokaler-demo-schluessel-bitte-aendern}
+      BASE_URL: http://localhost:8000
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_STARTTLS: "false"
     depends_on:
-      seed:
+      migrate:
         condition: service_completed_successfully
+      mailpit:
+        condition: service_started
 
 volumes:
   pgdata:
