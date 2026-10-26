@@ -78,7 +78,8 @@ button, input, select { font: inherit; color: inherit; }
   background: var(--court); color: #fff;
   border-bottom: 1px solid var(--court-deep);
 }
-.brand { display: flex; align-items: center; gap: 10px; color: #fff; text-decoration: none; font-stretch: 125%; font-weight: 800; font-size: 1.15rem; letter-spacing: -0.01em; }
+.brand { display: flex; align-items: center; gap: 8px; color: #fff; text-decoration: none; font-stretch: 125%; font-weight: 800; font-size: 1.2rem; letter-spacing: -0.015em; }
+.logo-mark { flex: none; display: block; }
 .topbar :focus-visible { outline-color: var(--ball); }
 .mainnav { display: flex; gap: 4px; flex: 1; }
 .mainnav a { color: #dbe6fb; text-decoration: none; font-weight: 500; padding: 8px 12px; border-radius: var(--r-s); }
@@ -338,7 +339,7 @@ button, input, select { font: inherit; color: inherit; }
   padding: 48px clamp(28px, 5vw, 72px);
   display: flex; flex-direction: column; justify-content: space-between; gap: 40px;
 }
-.login-court .brand { font-size: 1.3rem; }
+.login-court .brand { font-size: 1.45rem; gap: 10px; }
 .login-court h1 { font-stretch: 125%; font-weight: 800; font-size: clamp(2.1rem, 1.4rem + 2.6vw, 3.4rem); line-height: 1.02; letter-spacing: -0.015em; max-width: 13ch; }
 .login-court p { color: #c9d8f5; max-width: 40ch; font-size: 1.05rem; margin-top: 16px; }
 .court-art { display: block; width: 100%; max-width: 520px; height: auto; }

@@ -40,10 +40,10 @@
 </svg>
 {%- endmacro %}
 
-{% macro logo() -%}
-<svg class="logo-mark" width="30" height="30" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-<rect x="1.5" y="1.5" width="29" height="29" rx="7" fill="var(--court)" stroke="var(--line-on-court)" stroke-width="1.5"/>
-<path d="M8 5.5v21M24 5.5v21M8 11.5h16M8 20.5h16M16 11.5v9" stroke="#fff" stroke-width="1.6" fill="none"/>
-<circle cx="21" cy="8" r="3.4" fill="var(--ball)"/>
+{% macro logo(size=30) -%}
+{# Bildmarke: Das C steht für Court, seine Öffnung für den Slot, der Ball füllt ihn (Buchung). #}
+<svg class="logo-mark" width="{{ size }}" height="{{ size }}" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+<path d="M20.67 9.09A9.6 9.6 0 1 0 20.67 22.91" fill="none" stroke="currentColor" stroke-width="5.4" stroke-linecap="round"/>
+<circle cx="26.0" cy="16" r="4.1" fill="var(--ball)"/>
 </svg>
 {%- endmacro %}
