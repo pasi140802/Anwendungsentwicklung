@@ -61,25 +61,59 @@ def calendar(request: Request, start: str | None = None, tag: str | None = None,
     return _calendar(request, db, member, monday, partial=False, selected=wanted)
 
 
-@router.post("/buchungen", dependencies=[Depends(verify_csrf)])
-def create_booking(request: Request, background: BackgroundTasks, court_id: int = Form(...),
-                   start: str = Form(...), db: Session = Depends(get_db),
-                   member: Membership = Depends(get_current_member)):
+def _parse_start(value: str) -> datetime | None:
     try:
-        slot = datetime.fromisoformat(start)
+        slot = datetime.fromisoformat(value)
     except ValueError:
+        return None
+    return slot if slot.tzinfo else slot.replace(tzinfo=TZ)
+
+
+@router.get("/buchen")
+def booking_form(request: Request, court_id: int, start: str, db: Session = Depends(get_db),
+                 member: Membership = Depends(get_current_member)):
+    """Buchungsdialog: Spieldauer und Leihartikel wählen, Preis sehen."""
+    slot = _parse_start(start)
+    if slot is None:
+        raise svc.NotFoundError("Ungültige Startzeit")
+    court = svc.get_court_in_club(db, member.club_id, court_id)
+    club = member.club
+    context = dict(court=court, start=slot,
+                   options=svc.duration_options(db, club, court, slot),
+                   items=svc.rental_items_for(db, club.id, court), club=club)
+    if is_htmx(request):
+        return render(request, "_book_form.html", **context)
+    return render(request, "book.html", **context)
+
+
+@router.post("/buchungen", dependencies=[Depends(verify_csrf)])
+async def create_booking(request: Request, background: BackgroundTasks,
+                         db: Session = Depends(get_db),
+                         member: Membership = Depends(get_current_member)):
+    form = await request.form()
+    slot = _parse_start(str(form.get("start", "")))
+    if slot is None or not str(form.get("court_id", "")).isdigit():
         flash(request, "Ungültige Startzeit.", "error")
         return redirect("/kalender")
-    if slot.tzinfo is None:
-        slot = slot.replace(tzinfo=TZ)
+    items = {}
+    for key, value in form.items():
+        if key.startswith("item_") and key[5:].isdigit():
+            try:
+                items[int(key[5:])] = int(value or 0)
+            except ValueError:
+                items[int(key[5:])] = 0
+    minutes = int(form["duration"]) if str(form.get("duration", "")).isdigit() else None
     try:
-        booking = svc.book_slot(db, member, court_id, slot)
+        booking = svc.book_slot(db, member, int(form["court_id"]), slot, minutes, items)
         when = booking.start_at.astimezone(TZ)
-        flash(request, f"Gebucht: {booking.court.name}, {when:%d.%m. %H:%M} Uhr.")
+        flash(request, f"Gebucht: {booking.court.name}, {when:%d.%m. %H:%M} Uhr, "
+                       f"{booking.minutes} Minuten.")
         mail.send(background, member.user.email,
                   f"Gebucht: {booking.court.name}, {when:%d.%m. %H:%M} Uhr", "booking_confirmed",
                   name=member.user.name, club=member.club.name, court=booking.court.name,
                   when=fmt_dt(booking.start_at), until=f"{booking.end_at.astimezone(TZ):%H:%M}",
+                  minutes=booking.minutes, court_price=booking.court_price_cents,
+                  items=[(i.quantity, i.name, i.total_cents) for i in booking.items],
                   price=booking.price_cents, link=f"{BASE_URL}/meine-buchungen")
     except svc.BookingError as exc:
         flash(request, str(exc), "error")

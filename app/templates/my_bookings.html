@@ -10,6 +10,7 @@
   <div class="booking-main">
     <h3>{{ b.court.name }}, {{ s.strftime('%H:%M') }} bis {{ e.strftime('%H:%M') }} Uhr</h3>
     <p>{{ s | weekday_long }}, {{ s.day }}. {{ s | month }} {{ s.year }}{% if multi_club and clubs.get(b.club_id) %}, {{ clubs[b.club_id].name }}{% endif %}. {{ sport_label(b.court.sport) }}{% if b.court.surface %} auf {{ b.court.surface }}{% endif %}{% if b.price_cents %}, {{ b.price_cents | euro }}{% endif %}</p>
+    {% if b.items %}<p class="booking-items">Leihe: {% for i in b.items %}{{ i.quantity }}× {{ i.name }}{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
     {% if not past and deadline %}<p class="booking-note">{% if deadline > now %}Kostenlos stornierbar bis {{ deadline | dt }}{% else %}Stornofrist abgelaufen. Bei Fragen hilft die Vereinsverwaltung.{% endif %}</p>{% endif %}
   </div>
   {% if not past and (not deadline or deadline > now) %}

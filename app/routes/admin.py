@@ -138,13 +138,16 @@ def remove_member(request: Request, membership_id: int, db: Session = Depends(ge
 def courts(request: Request, db: Session = Depends(get_db),
            admin: Membership = Depends(require_admin)):
     return render(request, "admin/courts.html", club=db.get(Club, admin.club_id),
-                  courts=svc.list_courts(db, admin.club_id))
+                  courts=svc.list_courts(db, admin.club_id),
+                  items=svc.list_rental_items(db, admin.club_id))
 
 
 @router.post("/plaetze", dependencies=WRITE)
 async def save_court(request: Request, db: Session = Depends(get_db),
                      admin: Membership = Depends(require_admin)):
-    form = dict(await request.form())
+    raw = await request.form()
+    form = dict(raw)
+    form["durations"] = raw.getlist("durations")
     court_id = int(form["court_id"]) if form.get("court_id") else None
     try:
         court = svc.save_court(db, admin.club_id, form, court_id)
@@ -163,6 +166,28 @@ def toggle_court(request: Request, court_id: int, active: bool = Form(...),
     except BookingError as exc:
         flash(request, str(exc), "error")
     return redirect("/admin/plaetze")
+
+
+@router.post("/leihartikel", dependencies=WRITE)
+async def save_rental_item(request: Request, db: Session = Depends(get_db),
+                           admin: Membership = Depends(require_admin)):
+    form = dict(await request.form())
+    item_id = int(form["item_id"]) if form.get("item_id") else None
+    try:
+        item = svc.save_rental_item(db, admin.club_id, form, item_id)
+        flash(request, f"Leihartikel „{item.name}“ gespeichert.")
+    except BookingError as exc:
+        flash(request, str(exc), "error")
+    return redirect("/admin/plaetze#leihartikel")
+
+
+@router.post("/leihartikel/{item_id}/aktiv", dependencies=WRITE)
+def toggle_rental_item(request: Request, item_id: int, active: bool = Form(...),
+                       db: Session = Depends(get_db),
+                       admin: Membership = Depends(require_admin)):
+    item = svc.set_rental_item_active(db, admin.club_id, item_id, active)
+    flash(request, f"„{item.name}“ {'wird wieder angeboten' if active else 'ausgeblendet'}.")
+    return redirect("/admin/plaetze#leihartikel")
 
 
 # --- Sperren ----------------------------------------------------------------------

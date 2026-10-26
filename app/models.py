@@ -28,7 +28,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import ExcludeConstraint
+from sqlalchemy.dialects.postgresql import ARRAY, ExcludeConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -215,17 +215,40 @@ class Court(Base):
     is_indoor: Mapped[bool] = mapped_column(Boolean, default=False)
     has_floodlight: Mapped[bool] = mapped_column(Boolean, default=False)
     season: Mapped[Season] = mapped_column(_enum(Season, "season"), default=Season.ALL)
-    slot_minutes: Mapped[int] = mapped_column(Integer, default=60)
-    # Preis je Slot für Mitglieder in Cent; 0 = im Beitrag enthalten
-    price_cents: Mapped[int] = mapped_column(Integer, default=0)
-    prime_price_cents: Mapped[int | None] = mapped_column(Integer)
+    # Wählbare Spieldauern in Minuten; Startzeiten liegen im 30-Minuten-Raster
+    durations: Mapped[list[int]] = mapped_column(ARRAY(Integer), default=lambda: [60, 90])
+    # Preis pro Stunde in Cent (anteilig je halbe Stunde); 0 = im Beitrag enthalten
+    hourly_price_cents: Mapped[int] = mapped_column(Integer, default=0)
+    prime_hourly_price_cents: Mapped[int | None] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     __table_args__ = (
-        CheckConstraint("slot_minutes IN (30, 60, 90, 120)", name="ck_court_slot"),
+        CheckConstraint("durations <@ ARRAY[60, 90, 120] AND cardinality(durations) >= 1",
+                        name="ck_court_durations"),
         CheckConstraint(
-            "price_cents >= 0 AND (prime_price_cents IS NULL OR prime_price_cents >= 0)",
+            "hourly_price_cents >= 0 AND "
+            "(prime_hourly_price_cents IS NULL OR prime_hourly_price_cents >= 0)",
             name="ck_court_price"),
+    )
+
+
+class RentalItem(Base):
+    """Leihartikel einer Anlage, z. B. Padelschläger oder eine Dose Bälle."""
+
+    __tablename__ = "rental_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    club_id: Mapped[int] = mapped_column(ForeignKey("clubs.id"), index=True)
+    name: Mapped[str] = mapped_column(String(60))
+    # None = für alle Sportarten
+    sport: Mapped[Sport | None] = mapped_column(_enum(Sport, "sport"))
+    price_cents: Mapped[int] = mapped_column(Integer, default=0)
+    max_per_booking: Mapped[int] = mapped_column(Integer, default=4)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    __table_args__ = (
+        CheckConstraint("price_cents >= 0", name="ck_rental_price"),
+        CheckConstraint("max_per_booking BETWEEN 1 AND 10", name="ck_rental_max"),
     )
 
 
@@ -238,6 +261,8 @@ class Booking(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     start_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     end_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # Platzpreis und Gesamtpreis (Platz + Leihartikel) zum Zeitpunkt der Buchung
+    court_price_cents: Mapped[int] = mapped_column(Integer, default=0)
     price_cents: Mapped[int] = mapped_column(Integer, default=0)
     status: Mapped[BookingStatus] = mapped_column(
         _enum(BookingStatus, "booking_status"), default=BookingStatus.CONFIRMED
@@ -248,8 +273,36 @@ class Booking(Base):
 
     court: Mapped[Court] = relationship()
     user: Mapped[User] = relationship(foreign_keys=[user_id])
+    items: Mapped[list["BookingItem"]] = relationship(
+        back_populates="booking", cascade="all, delete-orphan", order_by="BookingItem.id")
 
     __table_args__ = (CheckConstraint("end_at > start_at", name="ck_booking_time"),)
+
+    @property
+    def minutes(self) -> int:
+        return int((self.end_at - self.start_at).total_seconds() // 60)
+
+
+class BookingItem(Base):
+    """Ausgeliehener Artikel einer Buchung; Name und Preis werden festgehalten."""
+
+    __tablename__ = "booking_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    booking_id: Mapped[int] = mapped_column(
+        ForeignKey("bookings.id", ondelete="CASCADE"), index=True)
+    rental_item_id: Mapped[int] = mapped_column(ForeignKey("rental_items.id"))
+    name: Mapped[str] = mapped_column(String(60))
+    quantity: Mapped[int] = mapped_column(Integer)
+    price_cents: Mapped[int] = mapped_column(Integer)  # je Stück
+
+    booking: Mapped[Booking] = relationship(back_populates="items")
+
+    __table_args__ = (CheckConstraint("quantity BETWEEN 1 AND 10", name="ck_item_quantity"),)
+
+    @property
+    def total_cents(self) -> int:
+        return self.quantity * self.price_cents
 
 
 # FA-06 / NFA-02: keine zeitliche Überlappung bestätigter Buchungen auf einem Platz.

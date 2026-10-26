@@ -56,18 +56,33 @@ class Court as "Platz" {
   name : String
   sport : Tennis | Padel
   season : ganzjährig | Sommer | Winter
-  slotMinutes : 30 | 60 | 90 | 120
-  priceCents : int
-  primePriceCents : int [0..1]
+  durations : {60, 90, 120}
+  hourlyPriceCents : int
+  primeHourlyPriceCents : int [0..1]
   isIndoor, hasFloodlight, isActive : bool
 }
 
 class Booking as "Buchung" {
   startAt : DateTime
   endAt : DateTime
+  courtPriceCents : int
   priceCents : int
   status : bestätigt | storniert
   cancelledAt : DateTime [0..1]
+}
+
+class RentalItem as "Leihartikel" {
+  name : String
+  sport : Tennis | Padel [0..1]
+  priceCents : int
+  maxPerBooking : int
+  isActive : bool
+}
+
+class BookingItem as "Leihposition" {
+  name : String
+  quantity : int
+  priceCents : int
 }
 
 class Block as "Sperre" {
@@ -84,6 +99,9 @@ Club "1" *-- "0..*" Court
 User "1" -- "0..*" Booking : bucht >
 Court "1" -- "0..*" Booking : belegt <
 Court "1" -- "0..*" Block : sperrt <
+Club "1" *-- "0..*" RentalItem
+Booking "1" *-- "0..*" BookingItem
+BookingItem "0..*" -- "1" RentalItem
 
 note bottom of Booking
   Invariante: bestätigte Buchungen eines Platzes

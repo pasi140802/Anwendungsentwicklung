@@ -14,33 +14,51 @@ from tests.conftest import NOW, future_slot, last_mail, login, slot
 def test_save_court_with_all_fields(client, world, db):
     token = login(client, "admin@a.de")
     client.post("/admin/plaetze", data={
-        "name": "Padel 2", "sport": "padel", "surface": "Kunstrasen", "slot_minutes": "90",
+        "name": "Padel 2", "sport": "padel", "surface": "Kunstrasen", "durations": ["60", "90"],
         "season": "winter", "price": "18,50", "prime_price": "26", "is_indoor": "on",
         "csrf_token": token})
     court = db.scalars(select(Court).where(Court.name == "Padel 2")).one()
-    assert court.sport == Sport.PADEL and court.slot_minutes == 90
+    assert court.sport == Sport.PADEL and court.durations == [60, 90]
     assert court.season == Season.WINTER and court.is_indoor and not court.has_floodlight
-    assert court.price_cents == 1850 and court.prime_price_cents == 2600
+    assert court.hourly_price_cents == 1850 and court.prime_hourly_price_cents == 2600
     page = client.get("/admin/plaetze").text
-    assert "18,50\u00a0€" in page and "Hauptzeit 26\u00a0€" in page
+    assert "18,50\u00a0€/Std." in page and "Hauptzeit 26\u00a0€/Std." in page
 
 
 @pytest.mark.parametrize("data, message", [
-    ({"name": "", "slot_minutes": "60"}, "Namen"),
-    ({"name": "X", "slot_minutes": "45"}, "Slotlänge"),
-    ({"name": "X", "slot_minutes": "60", "price": "zwölf"}, "Betrag"),
+    ({"name": "", "durations": ["60"]}, "Namen"),
+    ({"name": "X", "durations": ["45"]}, "Spieldauer"),
+    ({"name": "X", "durations": []}, "Spieldauer"),
+    ({"name": "X", "durations": ["60"], "price": "zwölf"}, "Betrag"),
 ])
 def test_save_court_validation(db, world, data, message):
     with pytest.raises(BookingError, match=message):
         svc.save_court(db, world["club"].id, data)
 
 
-def test_slot_length_locked_while_future_bookings(db, world):
-    book_slot(db, world["m_lena"], world["court1"].id, future_slot())
-    court = world["court1"]
-    with pytest.raises(BookingError, match="Slotlänge"):
-        svc.save_court(db, world["club"].id, {"name": court.name, "slot_minutes": "90"},
-                       court.id)
+def test_rental_items_managed_and_offered(client, world, db):
+    from app.models import RentalItem
+
+    token = login(client, "admin@a.de")
+    client.post("/admin/leihartikel", data={"name": "Padelschläger", "sport": "padel",
+                                            "price": "4", "max_per_booking": "4",
+                                            "csrf_token": token})
+    item = db.scalars(select(RentalItem)).one()
+    assert item.price_cents == 400 and item.sport == Sport.PADEL
+    assert "Padelschläger" in client.get("/admin/plaetze").text
+    client.cookies.clear()
+    login(client, "lena@a.de")
+    start = future_slot(1, 18).isoformat()
+    form = client.get("/buchen", params={"court_id": world["padel"].id, "start": start})
+    assert "Padelschläger" in form.text and "90 Min." in form.text
+    tennis = client.get("/buchen", params={"court_id": world["court1"].id, "start": start})
+    assert "Padelschläger" not in tennis.text  # nur für Padel
+    client.cookies.clear()
+    token = login(client, "admin@a.de")
+    client.post(f"/admin/leihartikel/{item.id}/aktiv", data={"active": "false",
+                                                             "csrf_token": token})
+    db.expire_all()
+    assert not db.get(RentalItem, item.id).is_active
 
 
 def test_block_with_bookings_needs_confirmation(client, world, db):
@@ -110,12 +128,12 @@ def test_update_club_validation(db, world, field, value, message):
 
 
 def test_utilization_in_hours(db, world):
-    book_slot(db, world["m_lena"], world["padel"].id, slot(1, 17), now=NOW)
+    book_slot(db, world["m_lena"], world["padel"].id, slot(1, 17), 90, now=NOW)
     rows = {court.name: (booked, offered, share)
             for court, booked, offered, share in svc.utilization(
                 db, world["club"].id, week_start_for(NOW.date()))}
     booked, offered, share = rows["Padel 1"]
-    assert booked == 1.5 and offered == 7 * 9 * 1.5
+    assert booked == 1.5 and offered == 7 * 14
     assert share == pytest.approx(1.5 / offered * 100)
     assert rows["Platz 1"][1] == 7 * 14
 

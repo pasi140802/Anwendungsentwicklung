@@ -6,14 +6,15 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.config import TZ
-from app.models import Block, Booking, BookingStatus, Season
+from app.models import Block, Booking, BookingStatus, RentalItem, Season, Sport
 from app.services import booking as svc
 from app.services.booking import BookingError, ForbiddenError, NotFoundError
 from tests.conftest import NOW, slot
 
 
-def book(db, world, who="m_lena", court="court1", start=None):
-    return svc.book_slot(db, world[who], world[court].id, start or slot(1, 18), now=NOW)
+def book(db, world, who="m_lena", court="court1", start=None, minutes=None, items=None):
+    return svc.book_slot(db, world[who], world[court].id, start or slot(1, 18), minutes, items,
+                         now=NOW)
 
 
 def test_book_free_slot(db, world):
@@ -23,24 +24,87 @@ def test_book_free_slot(db, world):
     assert b.price_cents == 0
 
 
-def test_padel_slot_is_90_minutes_with_prime_price(db, world):
-    # Padel-Raster ab 08:00 in 90 Minuten: 08:00, 09:30, … 15:30, 17:00, 18:30, 20:00
-    early = book(db, world, court="padel", start=slot(1, 15, 30))
-    prime = book(db, world, who="m_jonas", court="padel", start=slot(1, 17))
-    assert early.end_at == slot(1, 17) and early.price_cents == 1600
-    assert prime.price_cents == 2400
+def test_padel_60_or_90_minutes_with_hourly_prices(db, world):
+    early = book(db, world, court="padel", start=slot(1, 15, 30), minutes=90)
+    prime = book(db, world, who="m_jonas", court="padel", start=slot(1, 17), minutes=90)
+    assert early.end_at == slot(1, 17) and early.price_cents == 5400  # 1,5 × 36 €
+    assert prime.end_at == slot(1, 18, 30) and prime.price_cents == 6600  # 1,5 × 44 €
+    assert book(db, world, court="padel", start=slot(2, 10)).minutes == 60  # kürzeste Dauer
 
 
-def test_start_must_be_on_slot_grid(db, world):
-    with pytest.raises(BookingError, match="Slotraster"):
-        book(db, world, court="padel", start=slot(1, 18))  # 18:00 liegt nicht im 90er-Raster
+def test_price_across_prime_start(world):
+    # 16:30–17:30: halbe Stunde normal (18 €) + halbe Stunde Hauptzeit (22 €)
+    assert svc.court_price(world["club"], world["padel"], slot(1, 16, 30), 60) == 4000
+
+
+def test_duration_must_be_offered(db, world):
+    with pytest.raises(BookingError, match="60 Minuten"):
+        book(db, world, minutes=90)  # Platz 1 bietet nur 60 Minuten an
+
+
+def test_duration_must_end_before_closing(db, world):
+    with pytest.raises(BookingError, match="bis zum Schluss"):
+        book(db, world, court="padel", start=slot(1, 21), minutes=90)
+    assert book(db, world, court="padel", start=slot(1, 21), minutes=60).end_at == slot(1, 22)
+
+
+def test_start_must_be_on_half_hour_grid(db, world):
+    with pytest.raises(BookingError, match="Öffnungszeiten"):
+        book(db, world, court="padel", start=slot(1, 18, 15))
+
+
+def test_overlap_with_longer_booking_rejected(db, world):
+    book(db, world, court="padel", start=slot(1, 17), minutes=90)
+    with pytest.raises(BookingError, match="gerade"):
+        book(db, world, who="m_jonas", court="padel", start=slot(1, 18))
+
+
+def _items(db, world):
+    club = world["club"]
+    rackets = RentalItem(club_id=club.id, name="Padelschläger", sport=Sport.PADEL,
+                         price_cents=400, max_per_booking=4)
+    balls = RentalItem(club_id=club.id, name="Tennisbälle", sport=Sport.TENNIS,
+                       price_cents=600, max_per_booking=2)
+    db.add_all([rackets, balls])
+    db.commit()
+    return rackets, balls
+
+
+def test_rental_items_added_to_price(db, world):
+    rackets, _ = _items(db, world)
+    b = book(db, world, court="padel", start=slot(1, 17), minutes=90, items={rackets.id: 2})
+    assert b.court_price_cents == 6600 and b.price_cents == 6600 + 800
+    assert [(i.name, i.quantity, i.price_cents) for i in b.items] == [("Padelschläger", 2, 400)]
+    rackets.price_cents = 500  # spätere Preisänderung ändert die Buchung nicht
+    db.commit()
+    db.refresh(b)
+    assert b.items[0].price_cents == 400
+
+
+def test_rental_items_validated(db, world):
+    rackets, balls = _items(db, world)
+    with pytest.raises(BookingError, match="nicht verfügbar"):
+        book(db, world, court="padel", start=slot(1, 17), items={balls.id: 1})  # Tennisbälle
+    with pytest.raises(BookingError, match="höchstens 4"):
+        book(db, world, court="padel", start=slot(1, 17), items={rackets.id: 5})
+    rackets.is_active = False
+    db.commit()
+    with pytest.raises(BookingError, match="nicht verfügbar"):
+        book(db, world, court="padel", start=slot(1, 17), items={rackets.id: 1})
+
+
+def test_duration_options(db, world):
+    book(db, world, who="m_jonas", court="padel", start=slot(1, 18))  # 18:00–19:00
+    options = svc.duration_options(db, world["club"], world["padel"], slot(1, 17))
+    assert [(o.minutes, o.available, o.price_cents) for o in options] == [
+        (60, True, 4400), (90, False, 6600)]
 
 
 def test_outside_opening_hours(db, world):
     with pytest.raises(BookingError, match="Öffnungszeiten"):
         book(db, world, start=slot(1, 7))
     with pytest.raises(BookingError):
-        book(db, world, start=slot(1, 22))  # Schluss um 22 Uhr
+        book(db, world, start=slot(1, 21, 30))  # 60 Minuten passen nicht mehr bis 22 Uhr
 
 
 def test_closed_weekday(db, world):
@@ -171,20 +235,23 @@ def test_cannot_cancel_started_booking(db, world):
 
 def test_week_view_states(db, world):
     book(db, world, start=slot(1, 18))
-    book(db, world, who="m_jonas", court="padel", start=slot(1, 17))
+    book(db, world, who="m_jonas", court="padel", start=slot(1, 17), minutes=90)
     club, courts, days = svc.build_week(db, world["m_lena"], svc.week_start_for(NOW.date()),
                                         now=NOW)
     tuesday = days[1]
     assert tuesday.opens == 8 * 60 and tuesday.closes == 22 * 60
     tennis = next(c for c in tuesday.columns if c.court.id == world["court1"].id)
     padel = next(c for c in tuesday.columns if c.court.id == world["padel"].id)
-    assert len(tennis.cells) == 14 and len(padel.cells) == 9
     by_start = {c.start: c for c in tennis.cells}
-    assert by_start[slot(1, 18)].state == "own"
+    assert by_start[slot(1, 18)].state == "own" and by_start[slot(1, 18)].end == slot(1, 19)
+    assert by_start[slot(1, 17, 30)].state == "short"  # 60 Minuten passen nicht vor 18 Uhr
+    assert by_start[slot(1, 21)].state == "free" and by_start[slot(1, 21, 30)].state == "short"
     padel_by_start = {c.start: c for c in padel.cells}
-    assert padel_by_start[slot(1, 17)].state == "booked"
-    assert padel_by_start[slot(1, 17)].label == "Belegt"  # Mitglieder sehen keine Namen
-    assert padel_by_start[slot(1, 18, 30)].price_cents == 2400
+    booked = padel_by_start[slot(1, 17)]
+    assert booked.state == "booked" and booked.minutes == 90
+    assert booked.label == "Belegt"  # Mitglieder sehen keine Namen
+    assert padel_by_start[slot(1, 18, 30)].price_cents == 4400  # 60 Minuten Hauptzeit
+    assert padel_by_start[slot(1, 10)].price_cents == 3600
     monday = next(c for c in days[0].columns if c.court.id == world["court1"].id)
     monday_past = {c.start: c for c in monday.cells}
     assert monday_past[slot(0, 9)].state == "past"
@@ -205,7 +272,8 @@ def test_week_view_beyond_horizon_is_later(db, world):
     _, _, days = svc.build_week(db, world["m_lena"],
                                 svc.week_start_for(NOW.date() + timedelta(days=7)), now=NOW)
     last = days[-1]  # Sonntag in 13 Tagen
-    assert all(c.state == "later" for col in last.columns for c in col.cells)
+    states = {c.state for col in last.columns for c in col.cells}
+    assert states == {"later", "short"}  # short: 21:30, 60 Minuten passen nicht mehr
 
 
 def test_slot_times_respect_dst(world):

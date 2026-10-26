@@ -59,7 +59,7 @@
         {% for col in d.columns %}
         <div class="tl-court" style="grid-column: {{ loop.index + 1 }}">
           <span class="court-name">{{ col.court.name }}</span>
-          <span class="court-meta">{{ sport_label(col.court.sport) }}, {{ col.court.slot_minutes }} Min.{% if col.court.is_indoor %}, Halle{% endif %}</span>
+          <span class="court-meta">{{ sport_label(col.court.sport) }}{% if col.court.is_indoor %}, Halle{% endif %}{% if col.court.hourly_price_cents %}, ab {{ col.court.hourly_price_cents | euro }}/Std.{% endif %}</span>
         </div>
         {% endfor %}
         <div class="tl-lines" aria-hidden="true"></div>
@@ -71,15 +71,15 @@
           <div class="tl-note" style="grid-column: {{ ci }}; grid-row: 2 / span {{ rows }}"><span>{{ col.note }}</span></div>
           {% endif %}
           {% for cell in col.cells %}
-          {%- set m = cell.start.hour * 60 + cell.start.minute -%}
-          {%- set span_txt = cell.start.strftime('%H:%M') ~ "–" ~ cell.end.strftime('%H:%M') -%}
-          {%- set when = (d.day | weekday_long) ~ ", " ~ d.day.day ~ ". " ~ (d.day | month) ~ ", " ~ cell.start.strftime('%H:%M') ~ " bis " ~ cell.end.strftime('%H:%M') ~ " Uhr" -%}
-          <div class="slot slot-{{ cell.state }}{% if cell.is_past %} is-past{% endif %}" style="grid-column: {{ ci }}; grid-row: {{ (m - d.opens) // 15 + 2 }} / span {{ col.court.slot_minutes // 15 }}" data-slot="{{ cell.court.id }}-{{ cell.start.isoformat() }}">
+          {%- set cs = cell.start | local -%}{%- set ce = cell.end | local -%}
+          {%- set m = cs.hour * 60 + cs.minute -%}
+          {%- set span_txt = cs.strftime('%H:%M') ~ "–" ~ ce.strftime('%H:%M') -%}
+          {%- set when = (d.day | weekday_long) ~ ", " ~ d.day.day ~ ". " ~ (d.day | month) ~ ", " ~ cs.strftime('%H:%M') ~ " bis " ~ ce.strftime('%H:%M') ~ " Uhr" -%}
+          <div class="slot slot-{{ cell.state }}{% if cell.is_past %} is-past{% endif %}{% if cell.minutes <= 30 %} is-short{% endif %}" style="grid-column: {{ ci }}; grid-row: {{ (m - d.opens) // 15 + 2 }} / span {{ cell.minutes // 15 }}" data-slot="{{ cell.court.id }}-{{ cs.isoformat() }}">
             {%- if cell.state == "free" -%}
-            <button class="slot-btn" hx-post="/buchungen" hx-vals='{"court_id": {{ cell.court.id }}, "start": "{{ cell.start.isoformat() }}"}'
-                    hx-confirm="buchen" data-confirm-title="{{ cell.court.name }} buchen?" data-confirm-text="{{ when }}.{% if cell.price_cents %} Preis {{ cell.price_cents | euro }}, Bezahlung beim Verein.{% endif %}" data-confirm-ok="Jetzt buchen"
-                    aria-label="{{ cell.court.name }}, {{ when }} buchen{% if cell.price_cents %}, {{ cell.price_cents | euro }}{% endif %}">
-              <span class="slot-time">{{ span_txt }}</span><span class="slot-label">{{ cell.price_cents | euro if cell.price_cents else "frei" }}</span></button>
+            <button class="slot-btn" hx-get="/buchen?court_id={{ cell.court.id }}&amp;start={{ cs.isoformat() | urlencode }}" hx-target="#booksheet-body" hx-swap="innerHTML"
+                    aria-label="{{ cell.court.name }} ab {{ cs.strftime('%H:%M') }} Uhr buchen{% if cell.price_cents %}, ab {{ cell.price_cents | euro }}{% endif %}">
+              <span class="slot-time">{{ cs.strftime('%H:%M') }}</span><span class="slot-label">{{ cell.price_cents | euro if cell.price_cents else "frei" }}</span></button>
             {%- elif cell.state == "own" and not cell.is_past -%}
             <button class="slot-btn" hx-post="/buchungen/{{ cell.booking_id }}/storno" hx-vals='{"back": "/kalender"}'
                     hx-confirm="stornieren" data-confirm-title="Buchung stornieren?" data-confirm-text="{{ cell.court.name }}, {{ when }}. Der Platz wird sofort für andere frei." data-confirm-ok="Stornieren" data-confirm-danger
@@ -97,9 +97,9 @@
             {%- elif cell.state == "blocked" -%}
             <span class="slot-time">{{ span_txt }}</span><span class="slot-label" title="Gesperrt: {{ cell.label }}">{{ cell.label }}</span>
             {%- elif cell.state == "later" -%}
-            <span class="slot-time">{{ span_txt }}</span><span class="visually-hidden">noch nicht buchbar</span>
+            <span class="slot-time">{{ cs.strftime('%H:%M') }}</span><span class="visually-hidden">noch nicht buchbar</span>
             {%- else -%}
-            <span class="visually-hidden">{{ span_txt }}, vorbei</span>
+            <span class="visually-hidden">{{ cs.strftime('%H:%M') }}, nicht buchbar</span>
             {%- endif -%}
           </div>
           {% endfor %}
@@ -111,7 +111,7 @@
   {% endfor %}
 
   <ul class="legend" aria-label="Legende">
-    <li><span class="sw sw-free"></span>frei</li>
+    <li><span class="sw sw-free"></span>freie Startzeit, Preis für die kürzeste Dauer</li>
     <li><span class="sw sw-own"></span>deine Buchung</li>
     <li><span class="sw sw-booked"></span>belegt</li>
     <li><span class="sw sw-blocked"></span>gesperrt</li>

@@ -2,7 +2,7 @@
 
 Buchungsplattform für Tennis- und Padelvereine und gewerbliche Anlagen. Entstanden im Modul „Projekt: Anwendungsentwicklung“ (FOM, WiSe 2026/27).
 
-Mitglieder legen ein Konto an, treten ihrem Verein per Einladung oder Beitrittscode bei und buchen Plätze selbst. Betreiber pflegen Plätze, Preise, Öffnungszeiten, Saison und Regeln online. Doppelbuchungen sind technisch ausgeschlossen, auch bei gleichzeitigen Anfragen und unterschiedlich langen Slots.
+Mitglieder legen ein Konto an, treten ihrem Verein per Einladung oder Beitrittscode bei und buchen Plätze selbst. Betreiber pflegen Plätze, Preise, Öffnungszeiten, Saison und Regeln online. Spieler wählen beim Buchen 60 oder 90 Minuten und leihen Schläger oder Bälle dazu. Doppelbuchungen sind technisch ausgeschlossen, auch bei gleichzeitigen Anfragen und unterschiedlich langen Buchungen.
 
 ## Starten
 
@@ -15,7 +15,7 @@ docker compose up --build
 - App: <http://localhost:8000>
 - Mails: <http://localhost:8025> (Mailpit fängt alle Mails ab, z. B. Bestätigungs- und Einladungslinks)
 
-Beim ersten Start wird das Schema per Migration angelegt und es werden Demo-Daten geladen: TC Isartal mit Tennis (60 Min., zwei Sandplätze nur im Sommer, eine Halle) und Padel (90 Min., Hauptzeitpreise), 20 Mitglieder, eine Beitrittsanfrage, eine offene Einladung, sowie der TC Seeblick.
+Beim ersten Start wird das Schema per Migration angelegt und es werden Demo-Daten geladen: TC Isartal mit Tennis (zwei Sandplätze nur im Sommer, Halle 26 €/Std., Hauptzeit 32 €) und Padel (36 €/Std., Hauptzeit 44 €, also 66 € für 90 Minuten), Leihschläger und Bälle, 20 Mitglieder, eine Beitrittsanfrage, eine offene Einladung, sowie der TC Seeblick.
 
 | Rolle | E-Mail | Passwort |
 | --- | --- | --- |
@@ -43,9 +43,10 @@ Nach einem Update mit Schemaänderung einmalig `docker compose down -v` ausführ
 - Rollen Mitglied und Verwaltung, Sperren, Entfernen; der letzte Admin ist geschützt
 
 **Plätze und Buchung**
-- Plätze mit Sportart, Belag, Halle, Flutlicht, Saison (ganzjährig, Sommer, Winter), Slotlänge (30, 60, 90, 120 Min.), Preis und Hauptzeitpreis
+- Plätze mit Sportart, Belag, Halle, Flutlicht, Saison (ganzjährig, Sommer, Winter), buchbare Spieldauer (60, 90, 120 Min.), Preis pro Stunde und Hauptzeitpreis
+- Leihartikel wie Schläger und Bälle mit Preis und Höchstmenge je Buchung, je Sportart
 - Öffnungszeiten je Wochentag, Sommersaison, Hauptzeit, Buchungsregeln (aktive Buchungen, Vorlauf, Stornofrist)
-- Tagesansicht als Zeitachse: Slots unterschiedlicher Länge nebeneinander, Preise direkt am Slot
+- Tagesansicht als Zeitachse mit Startzeiten im 30-Minuten-Raster und Preisen; Buchungsdialog mit Spieldauer, Leihartikeln und Gesamtpreis
 - Doppelbuchungsschutz per Ausschluss-Constraint in PostgreSQL über Zeiträume (`tstzrange`)
 - Sperren mit Grund; betroffene Buchungen werden nach Bestätigung storniert und per Mail informiert
 - Bestätigungsmail nach jeder Buchung, Mail bei Stornierung durch die Verwaltung
@@ -69,7 +70,7 @@ app/
   mail.py            Mailversand (SMTP), Vorlagen in templates/mail
   ratelimit.py       Begrenzung von Anmelde- und Mailversuchen
   services/
-    booking.py       Slotraster, Regeln, Doppelbuchungsschutz, Wochenansicht
+    booking.py       Startraster, Dauer, Preise, Leihe, Regeln, Doppelbuchungsschutz
     accounts.py      Konten, Vereine, Beitritt, Einladungen, DSGVO
     admin.py         Mitglieder, Plätze, Sperren, Einstellungen, Auslastung
   routes/            HTTP-Endpunkte
@@ -77,7 +78,7 @@ app/
 migrations/          Alembic-Migrationen
 scripts/             Demo-Daten, Wartung
 deploy/              Caddyfile, Backup-Skript
-tests/               91 automatisierte Tests (pytest)
+tests/               99 automatisierte Tests (pytest)
 docs/                UML- und Architekturdiagramme, Betriebshandbuch
 ```
 
@@ -92,7 +93,7 @@ pytest --cov=app
 ruff check .
 ```
 
-Die Tests bauen das Schema über die Migrationen auf und prüfen, dass Modelle und Migrationen übereinstimmen. Darunter: 100 gleichzeitige Buchungsversuche auf denselben Slot, überlappende 90-Minuten-Slots, Registrierung mit Bestätigungslink, Einladung, Beitritt mit Freigabe, Passwort-Reset, Löschung und Export.
+Die Tests bauen das Schema über die Migrationen auf und prüfen, dass Modelle und Migrationen übereinstimmen. Darunter: 100 gleichzeitige Buchungsversuche auf denselben Slot, überlappende 60- und 90-Minuten-Buchungen, Preise über die Hauptzeitgrenze, Leihartikel, Registrierung mit Bestätigungslink, Einladung, Beitritt mit Freigabe, Passwort-Reset, Löschung und Export.
 
 Die CI-Pipeline (`.github/workflows/ci.yml`) führt bei jedem Push Linter und Tests gegen PostgreSQL aus und baut das Container-Image.
 

@@ -1,7 +1,8 @@
-"""Buchungslogik: Slotraster, Regeln, Doppelbuchungsschutz, Stornierung, Wochenansicht.
+"""Buchungslogik: Startraster, Spieldauer, Preise, Leihartikel, Regeln,
+Doppelbuchungsschutz, Stornierung, Wochenansicht.
 
-Das Slotraster ergibt sich je Platz aus Öffnungszeiten des Vereins, Saison des
-Platzes und Slotlänge (z. B. Tennis 60, Padel 90 Minuten). Alle Funktionen
+Startzeiten liegen im 30-Minuten-Raster ab Öffnung; gespielt wird so lange,
+wie der Platz es anbietet (z. B. 60 oder 90 Minuten). Alle Funktionen
 erhalten den aktuellen Zeitpunkt als Parameter `now`, damit die Regeln in Tests
 mit festen Zeitpunkten geprüft werden können.
 """
@@ -17,14 +18,18 @@ from app.config import TZ
 from app.models import (
     Block,
     Booking,
+    BookingItem,
     BookingStatus,
     Club,
     Court,
     Membership,
     OpeningHours,
+    RentalItem,
     Season,
     User,
 )
+
+GRID_MINUTES = 30  # Startzeiten liegen im 30-Minuten-Raster ab Öffnung
 
 
 class BookingError(Exception):
@@ -79,45 +84,104 @@ def hours_for(club: Club, day: date) -> OpeningHours | None:
     return entry
 
 
+def durations_of(court: Court) -> list[int]:
+    return sorted(court.durations or [60])
+
+
+def day_bounds(day: date, hours: OpeningHours) -> tuple[datetime, datetime]:
+    midnight = datetime.combine(day, time(0), TZ)
+    return midnight + timedelta(minutes=hours.opens), midnight + timedelta(minutes=hours.closes)
+
+
 def slot_starts(club: Club, court: Court, day: date) -> list[datetime]:
-    """Alle Startzeiten eines Platzes an einem Tag."""
+    """Alle möglichen Startzeiten eines Platzes an einem Tag (kürzeste Dauer passt)."""
     hours = hours_for(club, day)
     if hours is None or not court.is_active or not court_in_season(club, court, day):
         return []
     midnight = datetime.combine(day, time(0), TZ)
-    starts = []
-    minute = hours.opens
-    while minute + court.slot_minutes <= hours.closes:
-        starts.append(midnight + timedelta(minutes=minute))
-        minute += court.slot_minutes
-    return starts
+    shortest = durations_of(court)[0]
+    return [midnight + timedelta(minutes=m)
+            for m in range(hours.opens, hours.closes - shortest + 1, GRID_MINUTES)]
 
 
-def slot_end(court: Court, start: datetime) -> datetime:
-    return start + timedelta(minutes=court.slot_minutes)
+def _local_minute(dt: datetime) -> int:
+    local = dt.astimezone(TZ)
+    return local.hour * 60 + local.minute
 
 
-def slot_price(club: Club, court: Court, start: datetime) -> int:
-    """Preis in Cent; in der Hauptzeit gilt der Hauptzeitpreis, falls gesetzt."""
-    if club.prime_from is not None and court.prime_price_cents is not None:
-        local = start.astimezone(TZ)
-        minute = local.hour * 60 + local.minute
-        if club.prime_from <= minute < club.prime_to:
-            return court.prime_price_cents
-    return court.price_cents
+def court_price(club: Club, court: Court, start: datetime, minutes: int) -> int:
+    """Platzpreis in Cent: Stundenpreis anteilig je halbe Stunde, Hauptzeit zum Hauptzeitpreis."""
+    total = 0
+    for block in range(minutes // GRID_MINUTES):
+        minute = _local_minute(start + timedelta(minutes=block * GRID_MINUTES))
+        rate = court.hourly_price_cents
+        if (club.prime_from is not None and court.prime_hourly_price_cents is not None
+                and club.prime_from <= minute < club.prime_to):
+            rate = court.prime_hourly_price_cents
+        total += rate * GRID_MINUTES
+    return round(total / 60)
 
 
-def _check_slot_rules(club: Club, court: Court, start: datetime, now: datetime) -> None:
+def rental_items_for(db: Session, club_id: int, court: Court) -> list[RentalItem]:
+    """Aktive Leihartikel, die zur Sportart des Platzes passen."""
+    return db.scalars(
+        select(RentalItem)
+        .where(RentalItem.club_id == club_id, RentalItem.is_active.is_(True),
+               (RentalItem.sport.is_(None)) | (RentalItem.sport == court.sport))
+        .order_by(RentalItem.name)
+    ).all()
+
+
+def _overlapping(db: Session, court_id: int, start: datetime, end: datetime) -> bool:
+    return db.scalar(select(func.count(Booking.id)).where(
+        Booking.court_id == court_id, Booking.status == BookingStatus.CONFIRMED,
+        Booking.start_at < end, Booking.end_at > start)) > 0
+
+
+@dataclass
+class DurationOption:
+    minutes: int
+    end: datetime
+    price_cents: int
+    available: bool
+    reason: str = ""
+
+
+def duration_options(db: Session, club: Club, court: Court,
+                     start: datetime) -> list[DurationOption]:
+    """Wählbare Spieldauern ab einer Startzeit, jeweils mit Preis und Verfügbarkeit."""
+    hours = hours_for(club, start.astimezone(TZ).date())
+    options = []
+    for minutes in durations_of(court):
+        end = start + timedelta(minutes=minutes)
+        available, reason = True, ""
+        if hours is None or end > day_bounds(start.astimezone(TZ).date(), hours)[1]:
+            available, reason = False, "endet nach Schluss"
+        elif _overlapping(db, court.id, start, end) or find_block(db, court.id, start, end):
+            available, reason = False, "Anschluss belegt"
+        options.append(DurationOption(minutes, end, court_price(club, court, start, minutes),
+                                      available, reason))
+    return options
+
+
+def _check_slot_rules(club: Club, court: Court, start: datetime, minutes: int,
+                      now: datetime) -> None:
     if start.tzinfo is None:
         raise ValueError("start muss eine Zeitzone haben")
     if not court.is_active:
         raise BookingError("Dieser Platz ist derzeit nicht buchbar.")
+    if minutes not in durations_of(court):
+        allowed = " oder ".join(str(d) for d in durations_of(court))
+        raise BookingError(f"Dieser Platz ist für {allowed} Minuten buchbar.")
     local_day = start.astimezone(TZ).date()
     if not court_in_season(club, court, local_day):
         raise BookingError("Dieser Platz ist in dieser Saison geschlossen.")
-    if start not in slot_starts(club, court, local_day):
+    hours = hours_for(club, local_day)
+    if start not in slot_starts(club, court, local_day) or hours is None:
         raise BookingError("Zu dieser Zeit ist der Platz nicht buchbar "
-                           "(außerhalb der Öffnungszeiten oder nicht im Slotraster).")
+                           "(außerhalb der Öffnungszeiten).")
+    if start + timedelta(minutes=minutes) > day_bounds(local_day, hours)[1]:
+        raise BookingError(f"{minutes} Minuten passen nicht mehr bis zum Schluss.")
     if start <= now:
         raise BookingError("Slots in der Vergangenheit können nicht gebucht werden.")
     last_day = now.astimezone(TZ).date() + timedelta(days=club.max_days_ahead)
@@ -125,6 +189,26 @@ def _check_slot_rules(club: Club, court: Court, start: datetime, now: datetime) 
         raise BookingError(
             f"Buchungen sind höchstens {club.max_days_ahead} Tage im Voraus möglich."
         )
+
+
+def _rental_lines(db: Session, club_id: int, court: Court,
+                  wanted: dict[int, int] | None) -> list[BookingItem]:
+    """Prüft gewünschte Leihartikel und legt die Positionen mit festem Preis an."""
+    if not wanted:
+        return []
+    allowed = {item.id: item for item in rental_items_for(db, club_id, court)}
+    lines = []
+    for item_id, quantity in wanted.items():
+        if not quantity:
+            continue
+        item = allowed.get(item_id)
+        if item is None:
+            raise BookingError("Dieser Leihartikel ist für den Platz nicht verfügbar.")
+        if not 1 <= quantity <= item.max_per_booking:
+            raise BookingError(f"{item.name}: höchstens {item.max_per_booking} Stück.")
+        lines.append(BookingItem(rental_item_id=item.id, name=item.name, quantity=quantity,
+                                 price_cents=item.price_cents))
+    return lines
 
 
 def active_booking_count(db: Session, user_id: int, club_id: int, now: datetime) -> int:
@@ -145,8 +229,9 @@ def find_block(db: Session, court_id: int, start: datetime, end: datetime) -> Bl
 
 
 def book_slot(db: Session, member: Membership, court_id: int, start: datetime,
+              minutes: int | None = None, items: dict[int, int] | None = None,
               now: datetime | None = None) -> Booking:
-    """Bucht einen Slot und setzt alle Regeln durch (FA-05 bis FA-07).
+    """Bucht einen Platz und setzt alle Regeln durch (FA-05 bis FA-07).
 
     Nebenläufigkeit:
     - Zwei Mitglieder, überlappende Zeit auf einem Platz: Der Ausschluss-Constraint
@@ -157,8 +242,10 @@ def book_slot(db: Session, member: Membership, court_id: int, start: datetime,
     now = now or now_local()
     club = db.get(Club, member.club_id)
     court = get_court_in_club(db, club.id, court_id)
-    _check_slot_rules(club, court, start, now)
-    end = slot_end(court, start)
+    minutes = minutes or durations_of(court)[0]
+    _check_slot_rules(club, court, start, minutes, now)
+    end = start + timedelta(minutes=minutes)
+    lines = _rental_lines(db, club.id, court, items)
 
     try:
         db.execute(select(Membership.id).where(Membership.id == member.id).with_for_update())
@@ -171,14 +258,17 @@ def book_slot(db: Session, member: Membership, court_id: int, start: datetime,
         block = find_block(db, court.id, start, end)
         if block is not None:
             raise BookingError(f"Der Platz ist gesperrt: {block.reason}.")
+        court_cents = court_price(club, court, start, minutes)
         booking = Booking(club_id=club.id, court_id=court.id, user_id=member.user_id,
-                          start_at=start, end_at=end, price_cents=slot_price(club, court, start))
+                          start_at=start, end_at=end, court_price_cents=court_cents,
+                          price_cents=court_cents + sum(li.total_cents for li in lines),
+                          items=lines)
         db.add(booking)
         db.flush()
         db.commit()
     except IntegrityError:
         db.rollback()
-        raise BookingError("Dieser Slot wurde gerade von jemand anderem gebucht.") from None
+        raise BookingError("Diese Zeit wurde gerade von jemand anderem gebucht.") from None
     except BookingError:
         db.rollback()
         raise
@@ -225,7 +315,7 @@ def my_bookings(db: Session, user: User, now: datetime | None = None):
     rows = db.scalars(
         select(Booking)
         .where(Booking.user_id == user.id, Booking.status == BookingStatus.CONFIRMED)
-        .options(selectinload(Booking.court))
+        .options(selectinload(Booking.court), selectinload(Booking.items))
         .order_by(Booking.start_at)
     ).all()
     upcoming = [b for b in rows if b.start_at > now]
@@ -240,11 +330,15 @@ class Cell:
     court: Court
     start: datetime
     end: datetime
-    state: str  # free | own | booked | blocked | past | later
+    state: str  # free | short | own | booked | blocked | past | later
     label: str = ""
     booking_id: int | None = None
     is_past: bool = False
-    price_cents: int = 0
+    price_cents: int = 0  # bei freien Zeiten: Preis der kürzesten Dauer
+
+    @property
+    def minutes(self) -> int:
+        return int((self.end - self.start).total_seconds() // 60)
 
 
 @dataclass
@@ -302,35 +396,55 @@ def build_week(db: Session, member: Membership, monday: date, now: datetime | No
         view = DayView(day=day, closed=hours is None,
                        opens=hours.opens if hours else 0, closes=hours.closes if hours else 0)
         for court in courts:
-            starts = slot_starts(club, court, day)
-            note = ""
-            if not starts:
-                note = "geschlossen" if view.closed else "außerhalb der Saison"
-            cells = [
-                _cell(club, court, s, now, last_day, bookings_by_court.get(court.id, ()),
-                      blocks_by_court.get(court.id, ()), member)
-                for s in starts
-            ]
-            view.columns.append(Column(court, cells, note))
+            if hours is None or not court_in_season(club, court, day):
+                note = "geschlossen" if hours is None else "außerhalb der Saison"
+                view.columns.append(Column(court, [], note))
+                continue
+            cells = _day_cells(club, court, day, hours, now, last_day, member,
+                               bookings_by_court.get(court.id, []),
+                               blocks_by_court.get(court.id, []))
+            view.columns.append(Column(court, cells))
         days.append(view)
     return club, courts, days
 
 
-def _cell(club, court, start, now, last_day, bookings, blocks, member) -> Cell:
-    end = slot_end(court, start)
-    is_past = start <= now
-    price = slot_price(club, court, start)
-    for b in bookings:
-        if b.start_at < end and b.end_at > start:
+def _day_cells(club, court, day, hours, now, last_day, member, bookings, blocks) -> list[Cell]:
+    """Belegung eines Platzes an einem Tag: Buchungen und Sperren in voller Länge,
+    dazwischen freie Startzeiten im 30-Minuten-Raster."""
+    day_open, day_close = day_bounds(day, hours)
+    shortest = durations_of(court)[0]
+    cells: list[Cell] = []
+    t = day_open
+    step = timedelta(minutes=GRID_MINUTES)
+    while t < day_close:
+        b = next((b for b in bookings if b.start_at < t + step and b.end_at > t), None)
+        if b is not None:
+            s, e = max(b.start_at, day_open), min(b.end_at, day_close)
+            is_past = s <= now
             if b.user_id == member.user_id:
-                return Cell(court, start, end, "own", "Deine Buchung", b.id, is_past, price)
-            label = b.user.name if member.is_admin else "Belegt"
-            return Cell(court, start, end, "booked", label, b.id, is_past, price)
-    for block in blocks:
-        if block.start_at < end and block.end_at > start:
-            return Cell(court, start, end, "blocked", block.reason, is_past=is_past)
-    if is_past:
-        return Cell(court, start, end, "past", is_past=True)
-    if start.date() > last_day:
-        return Cell(court, start, end, "later", price_cents=price)
-    return Cell(court, start, end, "free", "Frei", price_cents=price)
+                cells.append(Cell(court, s, e, "own", "Deine Buchung", b.id, is_past))
+            else:
+                label = b.user.name if member.is_admin else "Belegt"
+                cells.append(Cell(court, s, e, "booked", label, b.id, is_past))
+            t = e
+            continue
+        blk = next((k for k in blocks if k.start_at < t + step and k.end_at > t), None)
+        if blk is not None:
+            s, e = max(blk.start_at, day_open), min(blk.end_at, day_close)
+            cells.append(Cell(court, s, e, "blocked", blk.reason, is_past=s <= now))
+            t = e
+            continue
+        price = court_price(club, court, t, shortest)
+        fits = t + timedelta(minutes=shortest) <= day_close and not any(
+            x.start_at < t + timedelta(minutes=shortest) and x.end_at > t
+            for x in [*bookings, *blocks])
+        if t <= now:
+            cells.append(Cell(court, t, t + step, "past", is_past=True))
+        elif not fits:
+            cells.append(Cell(court, t, t + step, "short"))
+        elif t.date() > last_day:
+            cells.append(Cell(court, t, t + step, "later", price_cents=price))
+        else:
+            cells.append(Cell(court, t, t + step, "free", "Frei", price_cents=price))
+        t = t + step
+    return cells

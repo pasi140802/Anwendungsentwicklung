@@ -89,6 +89,59 @@
     if (e.target.id === "confirm") e.target.close("cancel");
   });
 
+  // --- Buchungsdialog: Dauer und Leihartikel wählen ---------------------------
+  function updateTotal(form) {
+    var total = 0;
+    var dur = form.querySelector("input[name=duration]:checked");
+    if (dur) total += parseInt(dur.dataset.price || "0", 10);
+    form.querySelectorAll("select[data-price]").forEach(function (sel) {
+      total += parseInt(sel.dataset.price || "0", 10) * parseInt(sel.value || "0", 10);
+    });
+    var out = form.querySelector("[data-total]");
+    if (out) {
+      var euros = (total / 100).toFixed(2).replace(".", ",").replace(",00", "");
+      out.textContent = euros + "\u00a0€";
+    }
+  }
+
+  document.addEventListener("change", function (e) {
+    var form = e.target.closest && e.target.closest(".bookform");
+    if (form) updateTotal(form);
+  });
+
+  document.addEventListener("htmx:afterSwap", function (e) {
+    if (e.detail.target && e.detail.target.id === "booksheet-body") {
+      var sheet = document.getElementById("booksheet");
+      var form = sheet.querySelector(".bookform");
+      if (form) updateTotal(form);
+      if (!sheet.open) sheet.showModal();
+      var first = sheet.querySelector("input[name=duration]:checked");
+      if (first) first.focus();
+    }
+  });
+
+  document.addEventListener("htmx:beforeRequest", function (e) {
+    var form = e.detail.elt;
+    if (form && form.hasAttribute && form.hasAttribute("data-close-sheet")) {
+      var slot = form.querySelector("input[name=start]");
+      var court = form.querySelector("input[name=court_id]");
+      if (slot && court) lastSlot = court.value + "-" + slot.value;
+      var sheet = document.getElementById("booksheet");
+      if (sheet && sheet.open) sheet.close();
+    }
+  });
+
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest && e.target.closest("[data-close]");
+    if (!btn) return;
+    var sheet = btn.closest("dialog");
+    if (sheet) sheet.close(); else history.back();
+  });
+
+  document.addEventListener("click", function (e) {
+    if (e.target.id === "booksheet") e.target.close();
+  });
+
   // --- Rückmeldung nach dem Buchen -------------------------------------------
   var lastSlot = null;
   document.addEventListener("htmx:afterSettle", function () {

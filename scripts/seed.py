@@ -30,13 +30,20 @@ from app.models import (
     Membership,
     MembershipStatus,
     OpeningHours,
+    RentalItem,
     Role,
     Season,
     Sport,
     User,
 )
 from app.security import hash_password
-from app.services.booking import slot_price, slot_starts
+from app.services.booking import (
+    court_in_season,
+    court_price,
+    day_bounds,
+    durations_of,
+    hours_for,
+)
 
 DEMO_PASSWORD = "demo-courtslot"
 ALEMBIC_INI = Path(__file__).resolve().parent.parent / "alembic.ini"
@@ -73,26 +80,52 @@ def hours(weekday: tuple[int, int], weekend: tuple[int, int]) -> list[OpeningHou
 
 def fill_bookings(db, club: Club, courts: list[Court], members: list[User], keep_free: User,
                   now: datetime, rng: random.Random) -> None:
-    """Belegt vergangene und kommende Slots, abends dichter. Höchstens 2 aktive je Person."""
+    """Belegt vergangene und kommende Zeiten, abends dichter. Höchstens 2 aktive je Person."""
     active = {m.id: 0 for m in members}
     for offset in range(-7, 8):
         day = now.date() + timedelta(days=offset)
+        hours = hours_for(club, day)
+        if hours is None:
+            continue
+        day_open, day_close = day_bounds(day, hours)
         for court in courts:
-            for start in slot_starts(club, court, day):
-                evening = start.hour >= 17
-                if rng.random() > (0.6 if evening else 0.22):
+            if not court.is_active or not court_in_season(club, court, day):
+                continue
+            t = day_open
+            while t + timedelta(minutes=durations_of(court)[0]) <= day_close:
+                evening = t.hour >= 17
+                if rng.random() > (0.55 if evening else 0.2):
+                    t += timedelta(minutes=30 if rng.random() < 0.5 else 60)
                     continue
-                future = start > now
+                fitting = [d for d in durations_of(court)
+                           if t + timedelta(minutes=d) <= day_close]
+                minutes = rng.choice(fitting)
+                future = t > now
                 candidates = [m for m in members
                               if not future or (active[m.id] < 2 and m is not keep_free)]
                 if not candidates:
-                    continue
+                    break
                 member = rng.choice(candidates)
                 if future:
                     active[member.id] += 1
+                cents = court_price(club, court, t, minutes)
                 db.add(Booking(club_id=club.id, court_id=court.id, user_id=member.id,
-                               start_at=start, end_at=start + timedelta(minutes=court.slot_minutes),
-                               price_cents=slot_price(club, court, start)))
+                               start_at=t, end_at=t + timedelta(minutes=minutes),
+                               court_price_cents=cents, price_cents=cents))
+                t += timedelta(minutes=minutes)
+
+
+def rental_items(club: Club) -> list[RentalItem]:
+    return [
+        RentalItem(club_id=club.id, name="Padelschläger", sport=Sport.PADEL, price_cents=400,
+                   max_per_booking=4),
+        RentalItem(club_id=club.id, name="Dose Padelbälle", sport=Sport.PADEL, price_cents=700,
+                   max_per_booking=2),
+        RentalItem(club_id=club.id, name="Tennisschläger", sport=Sport.TENNIS, price_cents=500,
+                   max_per_booking=4),
+        RentalItem(club_id=club.id, name="Dose Tennisbälle", sport=Sport.TENNIS,
+                   price_cents=600, max_per_booking=2),
+    ]
 
 
 def seed(reset: bool = False) -> None:
@@ -119,16 +152,21 @@ def seed(reset: bool = False) -> None:
     db.add(club)
     db.flush()
     courts = [
+        # Sandplätze im Sommer im Mitgliedsbeitrag enthalten
         Court(club_id=club.id, name="Platz 1", sport=Sport.TENNIS, surface="Sand",
-              has_floodlight=True, season=Season.SUMMER, slot_minutes=60),
+              has_floodlight=True, season=Season.SUMMER, durations=[60, 90]),
         Court(club_id=club.id, name="Platz 2", sport=Sport.TENNIS, surface="Sand",
-              season=Season.SUMMER, slot_minutes=60),
+              season=Season.SUMMER, durations=[60, 90]),
+        # Preise pro Stunde; Padel in der Hauptzeit: 90 Minuten = 66 €
         Court(club_id=club.id, name="Halle", sport=Sport.TENNIS, surface="Teppich",
-              is_indoor=True, slot_minutes=60, price_cents=1200, prime_price_cents=1800),
+              is_indoor=True, durations=[60, 90], hourly_price_cents=2600,
+              prime_hourly_price_cents=3200),
         Court(club_id=club.id, name="Padel 1", sport=Sport.PADEL, surface="Kunstrasen",
-              has_floodlight=True, slot_minutes=90, price_cents=1600, prime_price_cents=2400),
+              has_floodlight=True, durations=[60, 90], hourly_price_cents=3600,
+              prime_hourly_price_cents=4400),
         Court(club_id=club.id, name="Padel 2", sport=Sport.PADEL, surface="Kunstrasen",
-              is_indoor=True, slot_minutes=90, price_cents=1600, prime_price_cents=2400),
+              is_indoor=True, durations=[60, 90], hourly_price_cents=3600,
+              prime_hourly_price_cents=4400),
     ]
     admin = user("Werner Brandl", "admin@tc-isartal.de")
     members = [user(n, email_for(n, "tc-isartal.de")) for n in MEMBERS]
@@ -143,6 +181,7 @@ def seed(reset: bool = False) -> None:
                       status=MembershipStatus.PENDING))
     db.add(Invitation(club_id=club.id, email="clara.neumann@example.de", role=Role.MEMBER,
                       invited_by_id=admin.id))
+    db.add_all(rental_items(club))
 
     # Medenspiel am nächsten Samstag in der Halle, 10 bis 14 Uhr
     saturday = now.date() + timedelta(days=(5 - now.weekday()) % 7 or 7)
@@ -167,9 +206,9 @@ def seed(reset: bool = False) -> None:
     db.flush()
     other_courts = [
         Court(club_id=other.id, name="Center Court", sport=Sport.TENNIS, surface="Hartplatz",
-              is_indoor=True, slot_minutes=60, price_cents=1500),
+              is_indoor=True, durations=[60, 90], hourly_price_cents=2800),
         Court(club_id=other.id, name="Traglufthalle", sport=Sport.TENNIS, surface="Granulat",
-              is_indoor=True, slot_minutes=60, price_cents=1500),
+              is_indoor=True, durations=[60, 90], hourly_price_cents=2400),
     ]
     other_admin = user("Admin Seeblick", "admin@tc-seeblick.de")
     other_members = [user(n, email_for(n, "tc-seeblick.de"))

@@ -18,6 +18,7 @@ from app.models import (
     Membership,
     MembershipStatus,
     OpeningHours,
+    RentalItem,
     Role,
     Season,
     Sport,
@@ -27,10 +28,11 @@ from app.services.booking import (
     BookingError,
     NotFoundError,
     cancel,
+    court_in_season,
+    day_bounds,
     get_court_in_club,
+    hours_for,
     now_local,
-    slot_end,
-    slot_starts,
 )
 
 JOIN_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # ohne 0/O und 1/I
@@ -196,38 +198,75 @@ def _euro_to_cents(value: str | None, label: str, required: bool = True) -> int 
 
 
 def save_court(db: Session, club_id: int, data: dict, court_id: int | None = None) -> Court:
+    """Legt einen Platz an oder ändert ihn. `data["durations"]`: Liste wie ["60", "90"]."""
     name = (data.get("name") or "").strip()
     if not name:
         raise BookingError("Bitte einen Namen für den Platz angeben.")
     try:
         sport = Sport(data.get("sport", "tennis"))
         season = Season(data.get("season", "all"))
-        slot_minutes = int(data.get("slot_minutes", 60))
+        durations = sorted({int(v) for v in data.get("durations") or []})
     except ValueError:
-        raise BookingError("Ungültige Angabe bei Sportart, Saison oder Slotlänge.") from None
-    if slot_minutes not in (30, 60, 90, 120):
-        raise BookingError("Die Slotlänge muss 30, 60, 90 oder 120 Minuten betragen.")
+        raise BookingError("Ungültige Angabe bei Sportart, Saison oder Spieldauer.") from None
+    if not durations or not set(durations) <= {60, 90, 120}:
+        raise BookingError("Bitte mindestens eine Spieldauer wählen: 60, 90 oder 120 Minuten.")
     court = get_court_in_club(db, club_id, court_id) if court_id else Court(club_id=club_id)
-    if court_id and slot_minutes != court.slot_minutes:
-        future = db.scalar(select(func.count(Booking.id)).where(
-            Booking.court_id == court.id, Booking.status == BookingStatus.CONFIRMED,
-            Booking.start_at > now_local()))
-        if future:
-            raise BookingError("Die Slotlänge lässt sich erst ändern, wenn der Platz "
-                               "keine kommenden Buchungen mehr hat.")
     court.name = name[:60]
     court.sport = sport
     court.surface = (data.get("surface") or "").strip()[:60]
     court.is_indoor = data.get("is_indoor") in ("on", "true", True)
     court.has_floodlight = data.get("has_floodlight") in ("on", "true", True)
     court.season = season
-    court.slot_minutes = slot_minutes
-    court.price_cents = _euro_to_cents(data.get("price"), "Preis")
-    court.prime_price_cents = _euro_to_cents(data.get("prime_price"), "Hauptzeitpreis",
-                                             required=False)
+    court.durations = durations
+    court.hourly_price_cents = _euro_to_cents(data.get("price"), "Preis pro Stunde")
+    court.prime_hourly_price_cents = _euro_to_cents(data.get("prime_price"),
+                                                    "Hauptzeitpreis", required=False)
     db.add(court)
     db.commit()
     return court
+
+
+# --- Leihartikel (Schläger, Bälle) ---------------------------------------------------
+
+def list_rental_items(db: Session, club_id: int) -> list[RentalItem]:
+    return db.scalars(select(RentalItem).where(RentalItem.club_id == club_id)
+                      .order_by(RentalItem.name)).all()
+
+
+def save_rental_item(db: Session, club_id: int, data: dict,
+                     item_id: int | None = None) -> RentalItem:
+    name = (data.get("name") or "").strip()
+    if not name:
+        raise BookingError("Bitte einen Namen für den Leihartikel angeben.")
+    try:
+        sport = Sport(data["sport"]) if data.get("sport") else None
+        max_per_booking = int(data.get("max_per_booking") or 4)
+    except ValueError:
+        raise BookingError("Ungültige Angabe bei Sportart oder Höchstmenge.") from None
+    if not 1 <= max_per_booking <= 10:
+        raise BookingError("Höchstmenge je Buchung: zwischen 1 und 10.")
+    if item_id:
+        item = db.get(RentalItem, item_id)
+        if item is None or item.club_id != club_id:
+            raise NotFoundError("Leihartikel nicht gefunden")
+    else:
+        item = RentalItem(club_id=club_id)
+    item.name = name[:60]
+    item.sport = sport
+    item.price_cents = _euro_to_cents(data.get("price"), "Leihpreis")
+    item.max_per_booking = max_per_booking
+    db.add(item)
+    db.commit()
+    return item
+
+
+def set_rental_item_active(db: Session, club_id: int, item_id: int, active: bool) -> RentalItem:
+    item = db.get(RentalItem, item_id)
+    if item is None or item.club_id != club_id:
+        raise NotFoundError("Leihartikel nicht gefunden")
+    item.is_active = active
+    db.commit()
+    return item
 
 
 def set_court_active(db: Session, club_id: int, court_id: int, active: bool,
@@ -396,12 +435,17 @@ def utilization(db: Session, club_id: int, monday: date):
             Booking.start_at >= start, Booking.start_at < end)).all()
         blocks = db.scalars(select(Block).where(
             Block.court_id == court.id, Block.start_at < end, Block.end_at > start)).all()
-        offered = 0
+        offered = 0.0
         for offset in range(7):
-            for s in slot_starts(club, court, monday + timedelta(days=offset)):
-                e = slot_end(court, s)
-                if not any(b.start_at < e and b.end_at > s for b in blocks):
-                    offered += court.slot_minutes
+            day = monday + timedelta(days=offset)
+            hours = hours_for(club, day)
+            if hours is None or not court_in_season(club, court, day):
+                continue
+            day_open, day_close = day_bounds(day, hours)
+            blocked = sum(
+                max(0.0, (min(b.end_at, day_close) - max(b.start_at, day_open)).total_seconds())
+                for b in blocks) / 60
+            offered += (hours.closes - hours.opens) - blocked
         booked = sum((b.end_at - b.start_at).total_seconds() / 60 for b in bookings)
         share = booked / offered * 100 if offered else 0.0
         result.append((court, booked / 60, offered / 60, share))

@@ -10,11 +10,11 @@ from app.services.booking import BookingError, book_slot
 from tests.conftest import NOW, make_member, make_user, slot
 
 
-def _attempt(membership_id: int, court_id: int, start) -> bool:
+def _attempt(membership_id: int, court_id: int, start, minutes: int | None = None) -> bool:
     session = SessionLocal()
     try:
         member = session.get(Membership, membership_id)
-        book_slot(session, member, court_id, start, now=NOW)
+        book_slot(session, member, court_id, start, minutes, now=NOW)
         return True
     except BookingError:
         return False
@@ -46,7 +46,7 @@ def test_parallel_padel_attempts_one_wins(db, pw_hash, world):
     db.commit()
     court_id, start = world["padel"].id, slot(1, 17)
     with ThreadPoolExecutor(max_workers=15) as pool:
-        results = list(pool.map(lambda m: _attempt(m.id, court_id, start), members))
+        results = list(pool.map(lambda m: _attempt(m.id, court_id, start, 90), members))
     assert sum(results) == 1
     assert _confirmed_overlapping(db, court_id, start, slot(1, 18, 30)) == 1
 

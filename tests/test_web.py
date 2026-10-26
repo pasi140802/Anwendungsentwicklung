@@ -2,7 +2,7 @@
 
 from sqlalchemy import select
 
-from app.models import Block, Booking, BookingStatus
+from app.models import Block, Booking, BookingStatus, Sport
 from app.services.booking import book_slot
 from tests.conftest import PASSWORD, csrf_of, future_slot, last_mail, login
 
@@ -60,7 +60,7 @@ def test_member_books_via_calendar(client, world):
     token = login(client, "lena@a.de")
     page = client.get("/kalender")
     assert page.status_code == 200 and "Platz 1" in page.text and "Platz B" not in page.text
-    assert "Padel, 90 Min." in page.text
+    assert "Padel, ab 36\u00a0€/Std." in page.text
     r = client.post("/buchungen", data={"court_id": world["court1"].id,
                                         "start": future_slot().isoformat(), "csrf_token": token},
                     headers={"HX-Request": "true"})
@@ -71,16 +71,30 @@ def test_member_books_via_calendar(client, world):
     assert "Platz 1" in mine and "Stornieren" in mine
 
 
-def test_padel_price_shown_and_stored(client, world, db):
+def test_padel_booking_with_duration_and_rentals(client, world, db):
+    from app.models import RentalItem
+
+    rackets = RentalItem(club_id=world["club"].id, name="Padelschläger", sport=Sport.PADEL,
+                         price_cents=400, max_per_booking=4)
+    db.add(rackets)
+    db.commit()
     token = login(client, "lena@a.de")
     start = future_slot(1, 17)
     page = client.get(f"/kalender?tag={start.date().isoformat()}").text
-    assert "24\u00a0€" in page and "16\u00a0€" in page
+    assert "44\u00a0€" in page and "36\u00a0€" in page
+    dialog = client.get("/buchen", params={"court_id": world["padel"].id,
+                                           "start": start.isoformat()},
+                        headers={"HX-Request": "true"})
+    assert "<html" not in dialog.text and "66\u00a0€" in dialog.text
     client.post("/buchungen", data={"court_id": world["padel"].id, "start": start.isoformat(),
+                                    "duration": "90", f"item_{rackets.id}": "2",
                                     "csrf_token": token})
     booking = db.scalars(select(Booking)).one()
-    assert booking.price_cents == 2400
-    assert "24\u00a0€" in client.get("/meine-buchungen").text
+    assert booking.minutes == 90 and booking.price_cents == 6600 + 800
+    mine = client.get("/meine-buchungen").text
+    assert "74\u00a0€" in mine and "2× Padelschläger" in mine
+    body = last_mail("lena@a.de").get_body(("plain",)).get_content()
+    assert "90 Minuten" in body and "2× Padelschläger" in body and "74\u00a0€" in body
 
 
 def test_rule_violation_message_shown(client, world):

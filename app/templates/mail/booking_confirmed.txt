@@ -4,8 +4,9 @@ dein Platz ist gebucht:
 
 {{ club }}
 {{ court }}
-{{ when }} bis {{ until }} Uhr
-{% if price %}Preis: {{ price | euro }}, Bezahlung beim Verein
+{{ when }} bis {{ until }} Uhr ({{ minutes }} Minuten)
+{% if items %}Leihe: {% for q, n, c in items %}{{ q }}× {{ n }}{% if not loop.last %}, {% endif %}{% endfor %}
+{% endif %}{% if price %}Gesamt: {{ price | euro }}, Bezahlung vor Ort beim Verein
 {% endif %}
 Stornieren kannst du unter „Meine Buchungen“:
 {{ link }}

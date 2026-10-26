@@ -178,7 +178,7 @@ button, input, select { font: inherit; color: inherit; }
 /* Zeitachse: eine Zeile je Viertelstunde, Slots spannen ihre Länge (60, 90 … Minuten) */
 .timeline-wrap { overflow-x: auto; margin: 0 -6px; padding: 0 6px 10px; }
 .timeline {
-  --q: 15px;
+  --q: 16px;
   position: relative;
   display: grid;
   grid-template-columns: 52px repeat(var(--cols), minmax(118px, 1fr));
@@ -223,7 +223,8 @@ button, input, select { font: inherit; color: inherit; }
 }
 .slot-btn > span { max-width: 100%; }
 
-.slot-free { background: #eaf1fd; box-shadow: inset 0 0 0 1.5px #b9cdee; color: var(--court); }
+.slot-free { background: #eef3fb; color: var(--court); }
+.slot-free.is-short { margin: 1px 0; }
 .slot-free .slot-btn { color: var(--court); }
 .slot-free .slot-time { color: var(--ink-soft); }
 .slot-free .slot-btn:hover, .slot-free .slot-btn:focus-visible { background: var(--court); color: #fff; }
@@ -240,6 +241,10 @@ button, input, select { font: inherit; color: inherit; }
 .slot-past { background: transparent; }
 .slot-later { background: transparent; box-shadow: inset 0 0 0 1px #dfe5ee; color: #9aa6ba; }
 .slot.is-past { opacity: .45; }
+.slot.is-short { flex-direction: row; align-items: center; justify-content: space-between; gap: 8px; }
+.slot.is-short .slot-btn { flex-direction: row; align-items: center; justify-content: space-between; }
+.slot.is-short .slot-label { font-size: 0.82rem; }
+.slot-short { background: transparent; }
 
 .slot.just-changed { animation: pop .7s ease-out; }
 @keyframes pop {
@@ -250,7 +255,7 @@ button, input, select { font: inherit; color: inherit; }
 .legend { list-style: none; display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 0; margin: 14px 0 0; font-size: 0.85rem; color: var(--ink-soft); }
 .legend li { display: flex; align-items: center; gap: 6px; }
 .sw { width: 14px; height: 14px; border-radius: 4px; }
-.sw-free { background: #eaf1fd; box-shadow: inset 0 0 0 1.5px #b9cdee; }
+.sw-free { background: #dfe8f7; }
 .sw-own { background: var(--ball); box-shadow: inset 0 0 0 1.5px var(--ball-deep); }
 .sw-booked { background: var(--booked); }
 .sw-blocked { background: repeating-linear-gradient(135deg, #d9e0ea 0 3px, #f3f5f9 3px 6px); }
@@ -377,6 +382,10 @@ button, input, select { font: inherit; color: inherit; }
 /* ---------- Formulare ---------- */
 .formgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
 .formgrid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.formgrid-4 { grid-template-columns: 2fr 1fr 1fr 1fr; }
+.checks-field { border: 0; padding: 0; margin: 0; }
+.checks-field legend { padding: 0; margin-bottom: 8px; }
+.checks-field legend small { display: block; }
 .span-2 { grid-column: span 2; }
 .row-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 16px; }
 .field-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
@@ -449,6 +458,35 @@ button, input, select { font: inherit; color: inherit; }
 .legal li + li { margin-top: 4px; }
 .legal-draft { margin-top: 28px; padding: 12px 14px; border-radius: var(--r-m); background: #fff8d6; font-size: 0.9rem; }
 
+/* ---------- Buchungsdialog ---------- */
+.sheet-wide { width: min(560px, calc(100vw - 24px)); }
+.bookform { padding: 24px; display: flex; flex-direction: column; gap: 20px; margin: 0; }
+.bookform-head h2 { font-stretch: 112%; font-weight: 800; font-size: 1.4rem; }
+.bookform-head p { color: var(--ink-soft); margin-top: 4px; }
+.bookform-group { border: 0; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.bookform-group legend { font-weight: 700; margin-bottom: 8px; padding: 0; }
+.durations { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.duration { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border: 1.5px solid var(--rule); border-radius: var(--r-m); background: #fff; cursor: pointer; }
+.duration input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.duration-min { font-stretch: 112%; font-weight: 800; font-size: 1.15rem; }
+.duration-time { font-size: 0.88rem; color: var(--ink-soft); }
+.duration-price { font-weight: 700; color: var(--court); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.duration:has(input:checked) { border-color: var(--court); background: var(--ok-soft); box-shadow: inset 0 0 0 1px var(--court); }
+.duration:has(input:focus-visible) { outline: 3px solid rgba(31, 78, 156, .35); outline-offset: 2px; }
+.duration.is-off { cursor: not-allowed; opacity: .55; background: #f4f6f9; }
+.duration.is-off .duration-price { color: var(--ink-soft); font-weight: 500; }
+.rentals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.rentals li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 10px 14px; border: 1px solid var(--rule); border-radius: var(--r-m); background: #fff; }
+.rentals label { display: flex; flex-direction: column; }
+.rentals label span { font-size: 0.88rem; color: var(--ink-soft); }
+.rentals select { width: 76px; min-height: 40px; }
+.bookform-foot { display: flex; flex-direction: column; gap: 6px; border-top: 1px solid var(--rule); padding-top: 16px; }
+.bookform-foot .muted { font-size: 0.88rem; }
+.bookform-total { display: flex; align-items: baseline; justify-content: space-between; }
+.bookform-total strong { font-stretch: 125%; font-weight: 800; font-size: 1.8rem; font-variant-numeric: tabular-nums; }
+.book-page { max-width: 560px; }
+.booking-items { font-size: 0.9rem; color: var(--ink-soft); }
+
 /* ---------- Mobile Navigation ---------- */
 .tabbar { display: none; }
 
@@ -483,7 +521,7 @@ button, input, select { font: inherit; color: inherit; }
   .hide-sm { display: none; }
   .show-sm { display: block; }
 
-  .formgrid, .formgrid-3, .choice, .account-grid, .invite-grid, .danger-zone { grid-template-columns: 1fr; }
+  .formgrid, .formgrid-3, .formgrid-4, .choice, .account-grid, .invite-grid, .danger-zone { grid-template-columns: 1fr; }
   .span-2 { grid-column: auto; }
   .courtrow { grid-template-columns: minmax(0, 1fr) auto; padding: 12px; }
   .courtrow .badge { display: none; }

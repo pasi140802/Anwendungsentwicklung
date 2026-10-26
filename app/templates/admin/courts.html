@@ -11,22 +11,23 @@
     </select>
   </label>
   <label class="field">Belag <input name="surface" value="{{ c.surface if c else '' }}" maxlength="60" placeholder="Sand, Kunstrasen …"></label>
-  <label class="field">Slotlänge
-    <select name="slot_minutes">
-      {% for v in (30, 60, 90, 120) %}<option value="{{ v }}" {% if (c.slot_minutes if c else 60) == v %}selected{% endif %}>{{ v }} Minuten</option>{% endfor %}
-    </select>
-  </label>
   <label class="field">Saison
     <select name="season">
       {% for v, label in (("all", "Ganzjährig"), ("summer", "Nur Sommer"), ("winter", "Nur Winter")) %}<option value="{{ v }}" {% if (c.season if c else "all") == v %}selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
   </label>
-  <label class="field">Preis je Slot <small>leer oder 0 für Mitglieder kostenlos</small>
-    <span class="money"><input name="price" value="{{ (c.price_cents / 100) | num(2) if c and c.price_cents else '' }}" inputmode="decimal" placeholder="0"><span>€</span></span>
+  <label class="field">Preis pro Stunde <small>leer oder 0: für Mitglieder kostenlos</small>
+    <span class="money"><input name="price" value="{{ (c.hourly_price_cents / 100) | num(2) if c and c.hourly_price_cents else '' }}" inputmode="decimal" placeholder="0"><span>€</span></span>
   </label>
-  <label class="field">Preis in der Hauptzeit <small>optional, Hauptzeit unter „Verein“</small>
-    <span class="money"><input name="prime_price" value="{{ (c.prime_price_cents / 100) | num(2) if c and c.prime_price_cents is not none else '' }}" inputmode="decimal" placeholder="wie normal"><span>€</span></span>
+  <label class="field">Pro Stunde in der Hauptzeit <small>optional, Hauptzeit unter „Verein“</small>
+    <span class="money"><input name="prime_price" value="{{ (c.prime_hourly_price_cents / 100) | num(2) if c and c.prime_hourly_price_cents is not none else '' }}" inputmode="decimal" placeholder="wie normal"><span>€</span></span>
   </label>
+  <fieldset class="field span-2 checks-field">
+    <legend>Buchbare Spieldauer <small>Startzeiten im 30-Minuten-Raster</small></legend>
+    <div class="checks">
+      {% for v in (60, 90, 120) %}<label class="check"><input type="checkbox" name="durations" value="{{ v }}" {% if v in (c.durations if c else [60, 90]) %}checked{% endif %}><span>{{ v }} Minuten</span></label>{% endfor %}
+    </div>
+  </fieldset>
   <div class="checks span-2">
     <label class="check"><input type="checkbox" name="is_indoor" {% if c and c.is_indoor %}checked{% endif %}><span>Halle</span></label>
     <label class="check"><input type="checkbox" name="has_floodlight" {% if c and c.has_floodlight %}checked{% endif %}><span>Flutlicht</span></label>
@@ -53,10 +54,10 @@
     <li class="courtrow{% if not c.is_active %} is-off{% endif %}">
       <div class="courtrow-main">
         <strong>{{ c.name }}</strong>
-        <span class="muted">{{ sport_label(c.sport) }}{% if c.surface %}, {{ c.surface }}{% endif %}, {{ c.slot_minutes }} Minuten{% if c.is_indoor %}, Halle{% endif %}{% if c.has_floodlight %}, Flutlicht{% endif %}{% if c.season != "all" %}, {{ "nur Sommer" if c.season == "summer" else "nur Winter" }}{% endif %}</span>
+        <span class="muted">{{ sport_label(c.sport) }}{% if c.surface %}, {{ c.surface }}{% endif %}, {{ c.durations | join(" oder ") }} Minuten{% if c.is_indoor %}, Halle{% endif %}{% if c.has_floodlight %}, Flutlicht{% endif %}{% if c.season != "all" %}, {{ "nur Sommer" if c.season == "summer" else "nur Winter" }}{% endif %}</span>
       </div>
       <div class="courtrow-price">
-        {% if c.price_cents %}{{ c.price_cents | euro }}{% if c.prime_price_cents is not none %}<small>Hauptzeit {{ c.prime_price_cents | euro }}</small>{% endif %}{% else %}<span class="muted">kostenlos</span>{% endif %}
+        {% if c.hourly_price_cents %}{{ c.hourly_price_cents | euro }}/Std.{% if c.prime_hourly_price_cents is not none %}<small>Hauptzeit {{ c.prime_hourly_price_cents | euro }}/Std.</small>{% endif %}{% else %}<span class="muted">kostenlos</span>{% endif %}
       </div>
       <span class="badge{% if not c.is_active %} badge-off{% endif %}">{{ "aktiv" if c.is_active else "deaktiviert" }}</span>
       <div class="courtrow-act">
@@ -86,6 +87,61 @@
     <input type="hidden" name="csrf_token" value="{{ csrf }}">
     {{ court_fields() }}
     <div><button type="submit" class="btn btn-primary">Platz anlegen</button></div>
+  </form>
+</section>
+{% macro item_fields(it=None) %}
+<div class="formgrid formgrid-4">
+  <label class="field">Name <input name="name" value="{{ it.name if it else '' }}" required maxlength="60" placeholder="Padelschläger"></label>
+  <label class="field">Für
+    <select name="sport">
+      <option value="" {% if it and not it.sport %}selected{% endif %}>alle Plätze</option>
+      <option value="tennis" {% if it and it.sport == "tennis" %}selected{% endif %}>Tennis</option>
+      <option value="padel" {% if it and it.sport == "padel" %}selected{% endif %}>Padel</option>
+    </select>
+  </label>
+  <label class="field">Preis je Stück <span class="money"><input name="price" value="{{ (it.price_cents / 100) | num(2) if it else '' }}" inputmode="decimal" placeholder="5"><span>€</span></span></label>
+  <label class="field">Höchstens je Buchung <input type="number" name="max_per_booking" min="1" max="10" value="{{ it.max_per_booking if it else 4 }}"></label>
+</div>
+{% endmacro %}
+<section class="panel" id="leihartikel">
+  <div class="panel-head">
+    <h2>Leihartikel</h2>
+    <p>Spieler wählen Schläger oder Bälle direkt beim Buchen dazu. Bezahlt wird vor Ort.</p>
+  </div>
+  {% if items %}
+  <ul class="courtlist">
+  {% for it in items %}
+    <li class="courtrow{% if not it.is_active %} is-off{% endif %}">
+      <div class="courtrow-main">
+        <strong>{{ it.name }}</strong>
+        <span class="muted">{{ "für alle Plätze" if not it.sport else "für " ~ sport_label(it.sport) }}, höchstens {{ it.max_per_booking }} je Buchung</span>
+      </div>
+      <div class="courtrow-price">{{ it.price_cents | euro }}<small>je Stück</small></div>
+      <span class="badge{% if not it.is_active %} badge-off{% endif %}">{{ "angeboten" if it.is_active else "ausgeblendet" }}</span>
+      <div class="courtrow-act">
+        <form method="post" action="/admin/leihartikel/{{ it.id }}/aktiv">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <input type="hidden" name="active" value="{{ 'false' if it.is_active else 'true' }}">
+          <button type="submit" class="btn-text{% if it.is_active %} danger{% endif %}">{{ "Ausblenden" if it.is_active else "Anbieten" }}</button>
+        </form>
+      </div>
+      <details class="courtrow-edit">
+        <summary class="btn-text">Bearbeiten</summary>
+        <form method="post" action="/admin/leihartikel" class="stack">
+          <input type="hidden" name="csrf_token" value="{{ csrf }}">
+          <input type="hidden" name="item_id" value="{{ it.id }}">
+          {{ item_fields(it) }}
+          <div><button type="submit" class="btn btn-court">Änderungen speichern</button></div>
+        </form>
+      </details>
+    </li>
+  {% endfor %}
+  </ul>
+  {% endif %}
+  <form method="post" action="/admin/leihartikel" class="panel-body stack" {% if items %}style="border-top:1px solid var(--rule)"{% endif %}>
+    <input type="hidden" name="csrf_token" value="{{ csrf }}">
+    {{ item_fields() }}
+    <div><button type="submit" class="btn btn-court">Leihartikel anlegen</button></div>
   </form>
 </section>
 {% endblock %}

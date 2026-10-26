@@ -161,7 +161,8 @@ def export_data(db: Session, user: User) -> dict:
     memberships = db.scalars(select(Membership).where(Membership.user_id == user.id)
                              .options(selectinload(Membership.club))).all()
     bookings = db.scalars(select(Booking).where(Booking.user_id == user.id)
-                          .options(selectinload(Booking.court)).order_by(Booking.start_at)).all()
+                          .options(selectinload(Booking.court), selectinload(Booking.items))
+                          .order_by(Booking.start_at)).all()
     return {
         "exportiert_am": now_local().isoformat(),
         "konto": {"name": user.name, "email": user.email,
@@ -172,7 +173,10 @@ def export_data(db: Session, user: User) -> dict:
                               "status": m.status.value} for m in memberships],
         "buchungen": [{"verein_id": b.club_id, "platz": b.court.name,
                        "beginn": b.start_at.isoformat(), "ende": b.end_at.isoformat(),
-                       "status": b.status.value, "preis_cent": b.price_cents} for b in bookings],
+                       "status": b.status.value, "preis_cent": b.price_cents,
+                       "leihe": [{"artikel": i.name, "anzahl": i.quantity,
+                                  "preis_cent": i.price_cents} for i in b.items]}
+                      for b in bookings],
     }
 
 

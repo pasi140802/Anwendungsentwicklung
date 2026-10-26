@@ -95,16 +95,19 @@ def make_club(name: str, code: str, **kwargs) -> Club:
 
 @pytest.fixture
 def world(db, pw_hash):
-    """Verein A (Tennis 60 Min. kostenlos, Padel 90 Min. mit Preisen) und Verein B."""
+    """Verein A (Tennis 60 Min. kostenlos; Padel 60/90 Min., 36 €/Std., Hauptzeit 44 €/Std.)
+    und Verein B."""
     a = make_club("TC A", "CODEAAAA", max_active_bookings=2, max_days_ahead=7,
                   prime_from=17 * 60, prime_to=21 * 60)
     b = make_club("TC B", "CODEBBBB")
     db.add_all([a, b])
     db.flush()
-    court1 = Court(club_id=a.id, name="Platz 1", sport=Sport.TENNIS, surface="Sand")
+    court1 = Court(club_id=a.id, name="Platz 1", sport=Sport.TENNIS, surface="Sand",
+                   durations=[60])
     padel = Court(club_id=a.id, name="Padel 1", sport=Sport.PADEL, surface="Kunstrasen",
-                  slot_minutes=90, price_cents=1600, prime_price_cents=2400)
-    court_b = Court(club_id=b.id, name="Platz B", sport=Sport.TENNIS)
+                  durations=[60, 90], hourly_price_cents=3600,
+                  prime_hourly_price_cents=4400)
+    court_b = Court(club_id=b.id, name="Platz B", sport=Sport.TENNIS, durations=[60])
     db.add_all([court1, padel, court_b])
     admin = make_user(db, pw_hash, "Admin A", "admin@a.de")
     lena = make_user(db, pw_hash, "Lena Hofmann", "lena@a.de")

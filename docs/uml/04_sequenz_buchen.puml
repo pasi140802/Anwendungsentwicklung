@@ -22,12 +22,14 @@ participant "BookingService\nbook_slot()" as S
 database "PostgreSQL" as DB
 participant "Mailversand\n(SMTP)" as M
 
-Mitglied -> B : freien Slot anklicken, bestätigen
-B -> R : POST court_id, start, CSRF-Token
+Mitglied -> B : Startzeit anklicken
+B -> R : GET /buchen (Dialog: Dauer, Leihartikel, Preis)
+Mitglied -> B : 60 oder 90 Minuten, Schläger wählen, buchen
+B -> R : POST court_id, start, Dauer, Artikel, CSRF-Token
 R -> R : CSRF-Token, Sitzung,\naktive Mitgliedschaft prüfen
 R -> S : book_slot(mitgliedschaft, court_id, start)
 S -> DB : Verein, Platz, Öffnungszeiten laden
-S -> S : Regeln prüfen (Slotraster,\nSaison, Zukunft, Vorlauf, Platz aktiv)
+S -> S : Regeln prüfen (30-Minuten-Raster, Dauer\nangeboten und vor Schluss, Saison, Vorlauf)
 alt Regel verletzt
   S --> R : BookingError(Grund)
 else Regeln erfüllt
@@ -39,7 +41,7 @@ else Regeln erfüllt
     S -> DB : ROLLBACK
     S --> R : BookingError(Grund)
   else
-    S -> DB : INSERT INTO bookings (…, Preis)
+    S -> DB : INSERT bookings + booking_items\n(Preis je halbe Stunde, Leihpreise)
     alt Ausschluss-Constraint verletzt (Zeit überschneidet sich)
       DB --> S : IntegrityError
       S -> DB : ROLLBACK

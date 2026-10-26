@@ -1,0 +1,57 @@
+{%- set s = start | local -%}
+{%- set first = (options | selectattr("available") | list | first) -%}
+<form class="bookform" method="post" action="/buchungen"
+      {% if request.headers.get('HX-Request') %}hx-post="/buchungen" hx-target="#week" hx-swap="outerHTML" data-close-sheet{% endif %}>
+  <input type="hidden" name="csrf_token" value="{{ csrf }}">
+  <input type="hidden" name="court_id" value="{{ court.id }}">
+  <input type="hidden" name="start" value="{{ start.isoformat() }}">
+
+  <header class="bookform-head">
+    <h2>{{ court.name }} buchen</h2>
+    <p>{{ s | weekday_long }}, {{ s.day }}. {{ s | month }}, ab {{ s.strftime('%H:%M') }} Uhr. {{ sport_label(court.sport) }}{% if court.surface %} auf {{ court.surface }}{% endif %}{% if court.is_indoor %}, Halle{% endif %}</p>
+  </header>
+
+  {% if not first %}
+  <p class="form-error" role="alert">Ab dieser Zeit ist keine Spieldauer mehr frei. Wähle eine andere Startzeit.</p>
+  {% else %}
+  <fieldset class="bookform-group">
+    <legend>Spieldauer</legend>
+    <div class="durations">
+      {% for o in options %}
+      <label class="duration{% if not o.available %} is-off{% endif %}">
+        <input type="radio" name="duration" value="{{ o.minutes }}" data-price="{{ o.price_cents }}" {% if not o.available %}disabled{% elif o == first %}checked{% endif %}>
+        <span class="duration-min">{{ o.minutes }} Min.</span>
+        <span class="duration-time">bis {{ (o.end | local).strftime('%H:%M') }} Uhr</span>
+        <span class="duration-price">{% if o.available %}{{ o.price_cents | euro if o.price_cents else "inklusive" }}{% else %}{{ o.reason }}{% endif %}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  {% if items %}
+  <fieldset class="bookform-group">
+    <legend>Ausleihen</legend>
+    <ul class="rentals">
+      {% for it in items %}
+      <li>
+        <label for="item-{{ it.id }}"><strong>{{ it.name }}</strong><span>{{ it.price_cents | euro }} je Stück</span></label>
+        <select class="inline-input" id="item-{{ it.id }}" name="item_{{ it.id }}" data-price="{{ it.price_cents }}">
+          {% for n in range(it.max_per_booking + 1) %}<option value="{{ n }}">{{ n }}</option>{% endfor %}
+        </select>
+      </li>
+      {% endfor %}
+    </ul>
+  </fieldset>
+  {% endif %}
+
+  <footer class="bookform-foot">
+    <p class="bookform-total"><span>Gesamt</span><strong data-total>{{ first.price_cents | euro if first.price_cents else "0 €" }}</strong></p>
+    <p class="muted">Bezahlung vor Ort beim Verein.{% if club.cancel_hours %} Kostenlos stornierbar bis {{ club.cancel_hours }} Stunden vorher.{% endif %}</p>
+    <div class="sheet-actions">
+      <button type="button" class="btn btn-quiet" data-close>Abbrechen</button>
+      <button type="submit" class="btn btn-primary">Jetzt buchen</button>
+    </div>
+  </footer>
+  {% endif %}
+  {% if not first %}<div class="sheet-actions"><button type="button" class="btn btn-quiet" data-close>Schließen</button></div>{% endif %}
+</form>

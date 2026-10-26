@@ -28,10 +28,12 @@ class FakeSMTP:
 def test_mail_has_text_and_html(world):
     msg = mail.build("lena@a.de", "Gebucht", "booking_confirmed", name="Lena", club="TC A & B",
                      court="Padel 1", when="Di 03.11.2026, 17:00 Uhr", until="18:30",
-                     price=2400, link="http://x/meine-buchungen")
+                     minutes=90, items=[(2, "Padelschläger", 800)], price=7400,
+                     link="http://x/meine-buchungen")
     text = msg.get_body(("plain",)).get_content()
     html = msg.get_body(("html",)).get_content()
-    assert "TC A & B" in text and "24\u00a0€" in text  # Textteil ohne HTML-Escaping
+    assert "TC A & B" in text and "74\u00a0€" in text  # Textteil ohne HTML-Escaping
+    assert "2× Padelschläger" in text and "90 Minuten" in text
     assert "TC A &amp; B" in html and "http://x/meine-buchungen" in html
 
 

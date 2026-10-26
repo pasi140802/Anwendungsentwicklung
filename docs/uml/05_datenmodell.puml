@@ -1,5 +1,5 @@
 @startuml datenmodell
-title CourtSlot – Datenmodell (PostgreSQL, Alembic-Migration 0001)
+title CourtSlot – Datenmodell (PostgreSQL, Alembic-Migrationen 0001–0002)
 skinparam shadowing false
 skinparam ArrowColor #0e1b33
 skinparam defaultFontName Arial
@@ -60,8 +60,8 @@ entity courts {
   * club_id <<FK>>
   name, sport, surface
   is_indoor, has_floodlight, season
-  slot_minutes (30/60/90/120)
-  price_cents, prime_price_cents
+  durations int[] (60/90/120)
+  hourly_price_cents, prime_hourly_price_cents
   is_active
 }
 entity bookings {
@@ -70,9 +70,24 @@ entity bookings {
   * club_id <<FK>>
   * court_id <<FK>>
   * user_id <<FK>>
-  start_at, end_at, price_cents
+  start_at, end_at
+  court_price_cents, price_cents
   status, cancelled_at
   cancelled_by_id <<FK>>
+}
+entity rental_items {
+  * id <<PK>>
+  --
+  * club_id <<FK>>
+  name, sport, price_cents
+  max_per_booking, is_active
+}
+entity booking_items {
+  * id <<PK>>
+  --
+  * booking_id <<FK>>
+  * rental_item_id <<FK>>
+  name, quantity, price_cents
 }
 entity blocks {
   * id <<PK>>
@@ -91,6 +106,9 @@ clubs ||--o{ courts
 courts ||--o{ bookings
 users ||--o{ bookings
 courts ||--o{ blocks
+clubs ||--o{ rental_items
+bookings ||--o{ booking_items
+rental_items ||--o{ booking_items
 
 note bottom of bookings
   EXCLUDE USING gist (court_id WITH =,
