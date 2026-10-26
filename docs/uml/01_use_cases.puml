@@ -2,44 +2,59 @@
 title CourtSlot – Use-Case-Diagramm
 left to right direction
 skinparam shadowing false
-skinparam ArrowColor #13261F
+skinparam ArrowColor #0e1b33
 skinparam defaultFontName Arial
+skinparam defaultFontColor #0e1b33
 skinparam packageStyle rectangle
 skinparam usecase {
   BackgroundColor #FFFFFF
-  BorderColor #13261F
+  BorderColor #1f4e9c
 }
-skinparam actorBorderColor #13261F
+skinparam rectangle {
+  BorderColor #0e1b33
+}
+skinparam actorBorderColor #0e1b33
+skinparam actorBackgroundColor #FFFFFF
 
+actor "Spieler\n(ohne Konto)" as G
 actor "Mitglied" as M
-actor "Admin\n(Platzwart)" as A
+actor "Verwaltung\n(Platzwart, Betreiber)" as A
+M -|> G
 A -|> M
 
 rectangle "CourtSlot" {
-  usecase "Anmelden" as UC1
-  usecase "Belegung der Woche ansehen" as UC2
+  usecase "Registrieren und\nE-Mail bestätigen" as UC0
+  usecase "Passwort zurücksetzen" as UC0b
+  usecase "Verein beitreten\n(Einladung oder Code)" as UC1
+  usecase "Belegung ansehen" as UC2
   usecase "Slot buchen" as UC3
   usecase "Buchungsregeln prüfen" as UC3a
   usecase "Buchung stornieren" as UC4
   usecase "Eigene Buchungen ansehen" as UC5
-  usecase "Mitglieder verwalten" as UC6
-  usecase "Plätze verwalten" as UC7
+  usecase "Daten exportieren,\nKonto löschen" as UC5b
+  usecase "Verein anlegen" as UC11
+  usecase "Mitglieder einladen\nund freigeben" as UC6
+  usecase "Plätze, Slotlängen\nund Preise pflegen" as UC7
+  usecase "Öffnungszeiten, Saison\nund Regeln festlegen" as UC9
   usecase "Platz sperren" as UC8
   usecase "Betroffene Buchungen\nstornieren" as UC8a
-  usecase "Buchungsregeln festlegen" as UC9
   usecase "Auslastung ansehen" as UC10
 }
 
+G --> UC0
+G --> UC0b
 M --> UC1
 M --> UC2
 M --> UC3
 M --> UC4
 M --> UC5
+M --> UC5b
 UC3 ..> UC3a : <<include>>
+M --> UC11
 A --> UC6
 A --> UC7
-A --> UC8
 A --> UC9
+A --> UC8
 A --> UC10
 UC8a .> UC8 : <<extend>>
 @enduml

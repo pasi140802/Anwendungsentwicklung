@@ -1,15 +1,18 @@
 @startuml sequenz_buchen
 title CourtSlot – Sequenzdiagramm „Slot buchen“
 skinparam shadowing false
-skinparam ArrowColor #13261F
+skinparam ArrowColor #0e1b33
 skinparam defaultFontName Arial
-skinparam sequenceParticipantBorderColor #13261F
-skinparam sequenceLifeLineBorderColor #5A6660
-skinparam actorBorderColor #13261F
+skinparam defaultFontColor #0e1b33
+skinparam sequenceParticipantBorderColor #1f4e9c
+skinparam sequenceParticipantBackgroundColor #FFFFFF
+skinparam sequenceLifeLineBorderColor #4a5872
+skinparam actorBorderColor #0e1b33
 skinparam actorBackgroundColor #FFFFFF
 skinparam databaseBackgroundColor #FFFFFF
-skinparam databaseBorderColor #13261F
-skinparam sequenceParticipantBackgroundColor #FFFFFF
+skinparam databaseBorderColor #1f4e9c
+skinparam noteBackgroundColor #f6fbd2
+skinparam noteBorderColor #c6d82c
 autonumber
 
 actor Mitglied
@@ -17,17 +20,18 @@ participant "Browser\n(HTMX)" as B
 participant "Route\nPOST /buchungen" as R
 participant "BookingService\nbook_slot()" as S
 database "PostgreSQL" as DB
+participant "Mailversand\n(SMTP)" as M
 
 Mitglied -> B : freien Slot anklicken, bestätigen
 B -> R : POST court_id, start, CSRF-Token
-R -> R : CSRF-Token und Sitzung prüfen
-R -> S : book_slot(user, court_id, start)
-S -> DB : Platz und Verein laden
-S -> S : Regeln prüfen\n(volle Stunde, Öffnungszeit,\nZukunft, Vorlauf, Platz aktiv)
+R -> R : CSRF-Token, Sitzung,\naktive Mitgliedschaft prüfen
+R -> S : book_slot(mitgliedschaft, court_id, start)
+S -> DB : Verein, Platz, Öffnungszeiten laden
+S -> S : Regeln prüfen (Slotraster,\nSaison, Zukunft, Vorlauf, Platz aktiv)
 alt Regel verletzt
   S --> R : BookingError(Grund)
 else Regeln erfüllt
-  S -> DB : SELECT … FROM users WHERE id = ? FOR UPDATE
+  S -> DB : SELECT … FROM memberships WHERE id = ? FOR UPDATE
   note right : sperrt parallele Anfragen\ndesselben Mitglieds
   S -> DB : aktive Buchungen zählen
   S -> DB : überlappende Sperre suchen
@@ -35,18 +39,18 @@ else Regeln erfüllt
     S -> DB : ROLLBACK
     S --> R : BookingError(Grund)
   else
-    S -> DB : INSERT INTO bookings (…)
-    alt Unique-Index verletzt (Slot gerade vergeben)
+    S -> DB : INSERT INTO bookings (…, Preis)
+    alt Ausschluss-Constraint verletzt (Zeit überschneidet sich)
       DB --> S : IntegrityError
       S -> DB : ROLLBACK
-      S --> R : BookingError("Slot gerade vergeben")
+      S --> R : BookingError("gerade vergeben")
     else
       S -> DB : COMMIT
       S --> R : Buchung
+      R ->> M : Bestätigungsmail\n(nach der Antwort)
     end
   end
 end
-R -> R : Meldung setzen,\nWochenansicht rendern
 R --> B : HTML-Fragment #week + Meldung
 B --> Mitglied : aktualisierter Kalender
 @enduml

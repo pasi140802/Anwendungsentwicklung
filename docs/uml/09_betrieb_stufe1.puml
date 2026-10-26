@@ -1,0 +1,40 @@
+@startuml betrieb_stufe1
+title CourtSlot – Betrieb Stufe 1 (ein Server, Docker Compose)
+skinparam shadowing false
+skinparam ArrowColor #0e1b33
+skinparam defaultFontName Arial
+skinparam defaultFontColor #0e1b33
+skinparam node {
+  BorderColor #0e1b33
+  BackgroundColor #FFFFFF
+}
+skinparam rectangle {
+  BorderColor #0e1b33
+  BackgroundColor #FFFFFF
+}
+skinparam databaseBorderColor #0e1b33
+skinparam databaseBackgroundColor #FFFFFF
+skinparam actorBorderColor #0e1b33
+skinparam actorBackgroundColor #FFFFFF
+
+actor "Nutzer" as U
+node "Server in der EU (z. B. 4 vCPU, 8 GB RAM)" as SRV {
+  rectangle "caddy\nHTTPS, Let's Encrypt" as CADDY
+  rectangle "app\nFastAPI, 2 Worker" as APP #e6eefb
+  rectangle "migrate\nalembic upgrade head" as MIG
+  rectangle "maintenance\ntäglich: Fristen löschen" as MAINT
+  database "db\nPostgreSQL 16" as DB
+  rectangle "backup\npg_dump nachts, 14 Tage" as BK
+}
+rectangle "Mailanbieter\n(SMTP, AV-Vertrag)" as MAIL
+rectangle "Speicher außer Haus\n(Kopie der Sicherungen)" as OFF
+
+U --> CADDY : HTTPS 443
+CADDY --> APP : HTTP
+APP --> DB
+MIG --> DB
+MAINT --> DB
+BK --> DB
+APP --> MAIL : SMTP 587
+BK ..> OFF : täglich
+@enduml

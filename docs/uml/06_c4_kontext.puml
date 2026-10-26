@@ -1,30 +1,31 @@
 @startuml c4_kontext
 title CourtSlot – Systemkontext (C4 Ebene 1)
 skinparam shadowing false
-skinparam ArrowColor #13261F
+skinparam ArrowColor #0e1b33
 skinparam defaultFontName Arial
+skinparam defaultFontColor #0e1b33
 skinparam rectangle {
-  BorderColor #13261F
+  BorderColor #0e1b33
 }
 skinparam rectangle<<system>> {
-  BackgroundColor #13261F
-  FontColor #F6F5EF
-  StereotypeFontColor #13261F
+  BackgroundColor #1f4e9c
+  FontColor #FFFFFF
+  BorderColor #1f4e9c
 }
 hide stereotype
-skinparam actorBorderColor #13261F
+skinparam actorBorderColor #0e1b33
 skinparam actorBackgroundColor #FFFFFF
 
-actor "Mitglied\n[Person]\nsieht Belegung, bucht\nund storniert Slots" as M
-actor "Platzwart / Admin\n[Person]\nverwaltet Plätze, Sperren,\nRegeln und Mitglieder" as A
+actor "Spieler / Mitglied\n[Person]\nregistriert sich, tritt Vereinen bei,\nbucht und storniert" as M
+actor "Verwaltung\n[Person]\npflegt Plätze, Preise, Regeln,\nMitglieder und Sperren" as A
 
-rectangle "CourtSlot\n[Software-System]\n\nmandantenfähige Buchungsplattform\nfür Tennis- und Padelvereine" <<system>> as CS
+rectangle "CourtSlot\n[Software-System]\n\nmandantenfähige Buchungsplattform\nfür Tennis- und Padelanlagen" <<system>> as CS
 
-rectangle "E-Mail-Dienst\n[externes System, Ausblick]\nBuchungsbestätigungen" as MAIL #ECEBE2
-rectangle "Vereinsverwaltung\n[externes System, Ausblick]\nMitgliederimport" as VV #ECEBE2
+rectangle "E-Mail-Dienst\n[externes System]\nBestätigung, Einladung,\nBuchung, Passwort" as MAIL #FFFFFF
+rectangle "Zahlungsdienst\n[externes System, Ausblick]\nOnline-Zahlung" as PAY #edf1f6
 
-M --> CS : nutzt per Browser\n(Smartphone/PC), HTTPS
-A --> CS : verwaltet per Browser, HTTPS
-CS ..> MAIL : sendet E-Mails\n(SMTP/API)
-VV ..> CS : liefert Mitgliederlisten\n(CSV/API)
+M --> CS : Browser (Smartphone/PC), HTTPS
+A --> CS : Browser, HTTPS
+CS --> MAIL : SMTP
+CS ..> PAY : API (Option B)
 @enduml

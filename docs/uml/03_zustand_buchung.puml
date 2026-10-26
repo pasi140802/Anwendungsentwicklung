@@ -1,31 +1,34 @@
 @startuml zustand_buchung
 title CourtSlot – Zustandsdiagramm einer Buchung
 skinparam shadowing false
-skinparam ArrowColor #13261F
+skinparam ArrowColor #0e1b33
 skinparam defaultFontName Arial
+skinparam defaultFontColor #0e1b33
 skinparam state {
   BackgroundColor #FFFFFF
-  BorderColor #13261F
+  BorderColor #1f4e9c
 }
+skinparam noteBackgroundColor #f6fbd2
+skinparam noteBorderColor #c6d82c
 hide empty description
 
-[*] --> Bestaetigt : buchen\n[Slot frei, Regeln erfüllt,\nPlatz nicht gesperrt]
+[*] --> Bestaetigt : buchen\n[Slot frei, im Raster, Regeln erfüllt,\nPlatz nicht gesperrt]
 
 state "Bestätigt" as Bestaetigt
 state "Storniert" as Storniert
 state "Stattgefunden" as Stattgefunden
 
-Bestaetigt --> Storniert : stornieren [vor Slotbeginn]\n(Mitglied oder Admin)
+Bestaetigt --> Storniert : stornieren\n[Mitglied: vor Stornofrist;\nVerwaltung: vor Beginn]
 Bestaetigt --> Storniert : Sperre bestätigt
-Bestaetigt --> Storniert : Mitglied gesperrt\noder entfernt
+Bestaetigt --> Storniert : Mitgliedschaft gesperrt,\nbeendet oder Konto gelöscht
 Bestaetigt --> Stattgefunden : Slotbeginn erreicht
 
 Storniert --> [*]
-Stattgefunden --> [*]
+Stattgefunden --> [*] : nach 12 Monaten gelöscht
 
 note right of Stattgefunden
   Wird nicht gespeichert, sondern aus
-  status = CONFIRMED und startAt <= jetzt abgeleitet.
+  status = bestätigt und startAt <= jetzt abgeleitet.
   Zählt nicht mehr als aktive Buchung.
 end note
 note right of Storniert

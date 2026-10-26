@@ -1,56 +1,72 @@
 @startuml klassen
 title CourtSlot – Klassendiagramm (Domänenmodell)
 skinparam shadowing false
-skinparam ArrowColor #13261F
+skinparam ArrowColor #0e1b33
 skinparam defaultFontName Arial
+skinparam defaultFontColor #0e1b33
 skinparam classBackgroundColor #FFFFFF
-skinparam classBorderColor #13261F
+skinparam classBorderColor #1f4e9c
+skinparam classHeaderBackgroundColor #e6eefb
 skinparam classAttributeIconSize 0
+skinparam noteBackgroundColor #f6fbd2
+skinparam noteBorderColor #c6d82c
 hide empty methods
-
-enum Role {
-  MEMBER
-  ADMIN
-}
-enum Sport {
-  TENNIS
-  PADEL
-}
-enum BookingStatus {
-  CONFIRMED
-  CANCELLED
-}
-
-class Club as "Verein" {
-  name : String
-  maxActiveBookings : int = 2
-  maxDaysAhead : int = 7
-  openHour : int = 8
-  closeHour : int = 22
-}
+hide circle
 
 class User as "Benutzer" {
   email : String {unique}
   name : String
   passwordHash : String
-  role : Role
-  isActive : bool
-  isRemoved : bool
+  emailVerifiedAt : DateTime [0..1]
+  sessionVersion : int
+  isDeleted : bool
+}
+
+class Club as "Verein" {
+  name : String
+  kind : Verein | Anlage
+  joinCode : String {unique}
+  maxActiveBookings : int = 2
+  maxDaysAhead : int = 7
+  cancelHours : int = 0
+  summerStart, summerEnd : Datum
+  primeFrom, primeTo : Uhrzeit [0..1]
+}
+
+class Membership as "Mitgliedschaft" {
+  role : Mitglied | Verwaltung
+  status : wartend | aktiv | gesperrt
   + isAdmin() : bool
+}
+
+class Invitation as "Einladung" {
+  email : String
+  role : Mitglied | Verwaltung
+  acceptedAt : DateTime [0..1]
+  revoked : bool
+}
+
+class OpeningHours as "Öffnungszeit" {
+  weekday : 0..6
+  opens, closes : Minuten
+  isClosed : bool
 }
 
 class Court as "Platz" {
   name : String
-  sport : Sport
-  surface : String
-  isActive : bool
+  sport : Tennis | Padel
+  season : ganzjährig | Sommer | Winter
+  slotMinutes : 30 | 60 | 90 | 120
+  priceCents : int
+  primePriceCents : int [0..1]
+  isIndoor, hasFloodlight, isActive : bool
 }
 
 class Booking as "Buchung" {
   startAt : DateTime
   endAt : DateTime
-  status : BookingStatus
-  createdAt : DateTime
+  priceCents : int
+  status : bestätigt | storniert
   cancelledAt : DateTime [0..1]
 }
 
@@ -60,17 +76,18 @@ class Block as "Sperre" {
   reason : String
 }
 
-Club "1" *-- "0..*" User : hat Mitglieder
-Club "1" *-- "0..*" Court : besitzt
+User "1" -- "0..*" Membership
+Club "1" *-- "0..*" Membership
+Club "1" *-- "7" OpeningHours
+Club "1" *-- "0..*" Invitation
+Club "1" *-- "0..*" Court
 User "1" -- "0..*" Booking : bucht >
 Court "1" -- "0..*" Booking : belegt <
 Court "1" -- "0..*" Block : sperrt <
-User "1" -- "0..*" Block : legt an >
-User "0..1" -- "0..*" Booking : storniert >
 
 note bottom of Booking
-  Invariante: je Platz und Startzeit
-  höchstens eine Buchung mit Status CONFIRMED
-  (partieller Unique-Index in der Datenbank)
+  Invariante: bestätigte Buchungen eines Platzes
+  überschneiden sich zeitlich nie
+  (Ausschluss-Constraint über tstzrange in PostgreSQL)
 end note
 @enduml

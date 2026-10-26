@@ -1,20 +1,20 @@
 @startuml zielbetrieb
-title CourtSlot – Zielbetrieb (Verteilungssicht)
+title CourtSlot – Zielbetrieb Stufe 2 (ab ca. 50 Vereinen)
 skinparam shadowing false
-skinparam ArrowColor #13261F
+skinparam ArrowColor #0e1b33
 skinparam defaultFontName Arial
 skinparam node {
-  BorderColor #13261F
+  BorderColor #0e1b33
   BackgroundColor #FFFFFF
 }
 skinparam rectangle {
-  BorderColor #13261F
+  BorderColor #0e1b33
   BackgroundColor #FFFFFF
 }
-skinparam databaseBorderColor #13261F
+skinparam databaseBorderColor #0e1b33
 skinparam databaseBackgroundColor #FFFFFF
-skinparam cloudBorderColor #13261F
-skinparam actorBorderColor #13261F
+skinparam cloudBorderColor #0e1b33
+skinparam actorBorderColor #0e1b33
 skinparam actorBackgroundColor #FFFFFF
 
 actor "Nutzer" as U
@@ -25,7 +25,7 @@ cloud "GitHub" as GH {
 node "IONOS Cloud, Rechenzentrum Frankfurt" as DC {
   node "Managed Kubernetes" as K8S {
     rectangle "Ingress-Controller\nTLS (Let's Encrypt)" as ING
-    rectangle "Deployment courtslot-web\n4 Pods à 2 Worker\nzustandslos, Autoscaling" as WEB #F6F5EF
+    rectangle "Deployment courtslot-web\n4 Pods à 2 Worker\nzustandslos, Autoscaling" as WEB #e6eefb
     rectangle "Monitoring\nPrometheus + Grafana,\nAlarmierung" as MON
   }
   database "Managed PostgreSQL\n(IONOS DBaaS)\nSLA 99,95 %" as PG

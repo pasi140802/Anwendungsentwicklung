@@ -1,28 +1,35 @@
 @startuml c4_container
 title CourtSlot – Container (C4 Ebene 2)
 skinparam shadowing false
-skinparam ArrowColor #13261F
+skinparam ArrowColor #0e1b33
 skinparam defaultFontName Arial
+skinparam defaultFontColor #0e1b33
 skinparam rectangle {
-  BorderColor #13261F
+  BorderColor #0e1b33
   BackgroundColor #FFFFFF
 }
-skinparam databaseBorderColor #13261F
+skinparam databaseBorderColor #0e1b33
 skinparam databaseBackgroundColor #FFFFFF
-skinparam actorBorderColor #13261F
+skinparam actorBorderColor #0e1b33
 skinparam actorBackgroundColor #FFFFFF
 
-actor "Mitglied / Admin" as U
+actor "Spieler / Verwaltung" as U
 
 rectangle "CourtSlot" as SYS {
-  rectangle "Browser-Oberfläche\n[HTML, CSS, HTMX]\n\nWochenkalender, Formulare;\nlädt Teilansichten nach" as UI
-  rectangle "Web-Anwendung\n[Python 3.13, FastAPI, Jinja2]\n\nRouten, Sitzung, CSRF, Rollen;\nBookingService und AdminService\nmit allen Buchungsregeln" as APP #F6F5EF
-  database "Datenbank\n[PostgreSQL 16]\n\nVereine, Benutzer, Plätze,\nBuchungen, Sperren;\nUnique-Index gegen Doppelbuchung" as DB
-  rectangle "Demo-Daten-Skript\n[Python]\n\nlegt Beispielverein an" as SEED
+  rectangle "Reverse Proxy\n[Caddy]\n\nHTTPS, Zertifikate,\nKompression" as PX
+  rectangle "Browser-Oberfläche\n[HTML, CSS, HTMX]\n\nKalender, Konto, Verwaltung" as UI
+  rectangle "Web-Anwendung\n[Python 3.13, FastAPI, Jinja2]\n\nRouten, Sitzung, CSRF, Rollen,\nRate Limiting; Services für\nBuchung, Konten, Verwaltung" as APP #e6eefb
+  database "Datenbank\n[PostgreSQL 16]\n\nKonten, Vereine, Plätze, Buchungen;\nAusschluss-Constraint gegen\nÜberschneidungen" as DB
+  rectangle "Migrationen\n[Alembic]" as MIG
+  rectangle "Wartung und Backup\n[Python, pg_dump]" as JOB
 }
+rectangle "E-Mail-Dienst\n[SMTP]" as MAIL
 
-U --> UI : HTTPS
-UI --> APP : HTTP-Anfragen\n(HTML-Fragmente zurück)
+U --> PX : HTTPS
+PX --> APP : HTTP
+UI --> PX : Anfragen\n(HTML-Fragmente zurück)
 APP --> DB : SQL über psycopg\n(Transaktionen, Sperren)
-SEED --> DB : SQL
+APP --> MAIL : Mails
+MIG --> DB : Schema
+JOB --> DB : löschen, sichern
 @enduml
