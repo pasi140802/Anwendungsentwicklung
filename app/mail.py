@@ -1,7 +1,8 @@
 """E-Mail-Versand über SMTP mit Text- und HTML-Teil.
 
-Ohne SMTP_HOST werden Mails nicht verschickt, sondern protokolliert und in
-OUTBOX abgelegt (Entwicklung und Tests). Lokal fängt Mailpit alle Mails ab.
+Ohne SMTP_HOST werden Mails nicht verschickt, sondern in OUTBOX abgelegt und mit
+Textteil im Terminal ausgegeben, damit Bestätigungslinks lokal nutzbar sind
+(Start ohne Docker). Mit Docker Compose fängt Mailpit alle Mails ab.
 """
 
 import logging
@@ -35,7 +36,9 @@ def build(to: str, subject: str, template: str, **context) -> EmailMessage:
 def deliver(msg: EmailMessage) -> None:
     if not config.SMTP_HOST:
         OUTBOX.append(msg)
-        log.info("Mail (nicht versendet) an %s: %s", msg["To"], msg["Subject"])
+        body = msg.get_body(preferencelist=("plain",)).get_content()
+        print(f"\n----- Mail an {msg['To']}: {msg['Subject']} -----\n{body}"
+              f"----- Ende der Mail -----\n", flush=True)
         return
     try:
         with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT, timeout=15) as smtp:

@@ -6,6 +6,8 @@ Mitglieder legen ein Konto an, treten ihrem Verein per Einladung oder Beitrittsc
 
 ## Starten
 
+Ausführliche Anleitung mit und ohne Docker: [INSTALLATION.md](INSTALLATION.md)
+
 Voraussetzung: Docker mit Docker Compose.
 
 ```bash
