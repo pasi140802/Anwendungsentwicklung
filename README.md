@@ -97,6 +97,12 @@ ruff check .
 
 Die Tests bauen das Schema über die Migrationen auf und prüfen, dass Modelle und Migrationen übereinstimmen. Darunter: 100 gleichzeitige Buchungsversuche auf denselben Slot, überlappende 60- und 90-Minuten-Buchungen, Preise über die Hauptzeitgrenze, Leihartikel, Registrierung mit Bestätigungslink, Einladung, Beitritt mit Freigabe, Passwort-Reset, Löschung und Export.
 
+Abgabe-ZIP mit allen versionierten Dateien, optional mit Ausarbeitung und Folien:
+
+```bash
+python -m scripts.abgabe_zip --dazu Ausarbeitung.pdf Folien.pdf
+```
+
 Die CI-Pipeline (`.github/workflows/ci.yml`) führt bei jedem Push Linter und Tests gegen PostgreSQL aus und baut das Container-Image.
 
 ## Sicherheit
