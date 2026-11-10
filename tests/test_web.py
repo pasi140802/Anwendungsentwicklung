@@ -1,5 +1,7 @@
 """Oberfläche, Anmeldung, Rechte, CSRF und Sicherheits-Header über HTTP (NFA-04 bis NFA-06)."""
 
+from datetime import timedelta
+
 from sqlalchemy import select
 
 from app.models import Block, Booking, BookingStatus, Sport
@@ -183,3 +185,18 @@ def test_old_rules_url_redirects(client, world):
     login(client, "admin@a.de")
     r = client.get("/admin/regeln", follow_redirects=False)
     assert r.headers["location"] == "/admin/verein"
+
+
+def test_calendar_renders_only_selected_day_and_loads_others(client, world):
+    """Die Wochenseite enthält nur den gewählten Tag, weitere Tage kommen per Nachladen."""
+    login(client, "lena@a.de")
+    start = future_slot(1, 17)
+    day = start.date()
+    other = day + timedelta(days=1) if day.weekday() < 6 else day - timedelta(days=1)
+    page = client.get(f"/kalender?tag={day.isoformat()}").text
+    assert f'data-src="/kalender/tag?tag={other.isoformat()}"' in page
+    assert f'data-src="/kalender/tag?tag={day.isoformat()}"' not in page
+    panel = client.get(f"/kalender/tag?tag={other.isoformat()}")
+    assert panel.status_code == 200 and "<html" not in panel.text
+    assert "daypanel-title" in panel.text
+    assert client.get("/kalender/tag?tag=kein-datum").status_code == 404

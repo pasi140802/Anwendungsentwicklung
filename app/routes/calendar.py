@@ -37,7 +37,7 @@ def _calendar(request: Request, db: Session, member: Membership, monday: date, p
               selected: date | None = None):
     now = svc.now_local()
     club, courts, days = svc.build_week(db, member, monday, now)
-    upcoming = [b for b in svc.my_bookings(db, member.user, now)[0] if b.club_id == club.id]
+    upcoming = svc.upcoming_in_club(db, member, now)
     context = dict(
         club=club, courts=courts, days=days, monday=monday,
         prev_week=monday - timedelta(days=7), next_week=monday + timedelta(days=7),
@@ -59,6 +59,18 @@ def calendar(request: Request, start: str | None = None, tag: str | None = None,
     wanted = _parse_day(tag) or _parse_day(start)
     monday = svc.week_start_for(wanted or svc.now_local().date())
     return _calendar(request, db, member, monday, partial=False, selected=wanted)
+
+
+@router.get("/kalender/tag")
+def calendar_day(request: Request, tag: str, db: Session = Depends(get_db),
+                 member: Membership = Depends(get_current_member)):
+    """Ein Tag der Woche, nachgeladen beim Wechsel des Tages (hält die Seite klein)."""
+    day = _parse_day(tag)
+    if day is None:
+        raise svc.NotFoundError("Ungültiger Tag")
+    _, courts, days = svc.build_week(db, member, svc.week_start_for(day), svc.now_local())
+    d = next(v for v in days if v.day == day)
+    return render(request, "_daypanel.html", d=d, courts=courts, is_admin=member.is_admin)
 
 
 def _parse_start(value: str) -> datetime | None:

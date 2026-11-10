@@ -80,7 +80,7 @@ app/
 migrations/          Alembic-Migrationen
 scripts/             Demo-Daten, Wartung
 deploy/              Caddyfile, Backup-Skript
-tests/               99 automatisierte Tests (pytest)
+tests/              100 automatisierte Tests (pytest)
 docs/                UML- und Architekturdiagramme, Betriebshandbuch
 ```
 

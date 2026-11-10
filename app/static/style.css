@@ -173,6 +173,7 @@ button, input, select { font: inherit; color: inherit; }
 .daypanel { background: var(--surface); border: 1px solid var(--rule); border-top: 0; border-radius: 0 0 var(--r-l) var(--r-l); padding: 18px 18px 8px; }
 .daypanel-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; font-size: 1.15rem; font-weight: 700; margin-bottom: 12px; }
 .daypanel-title span { font-size: 0.9rem; font-weight: 500; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.daypanel-loading { padding: 32px 0; color: var(--ink-soft); text-align: center; }
 .closed-note { padding: 28px 0 32px; color: var(--ink-soft); }
 
 /* Zeitachse: eine Zeile je Viertelstunde, Slots spannen ihre Länge (60, 90 … Minuten) */

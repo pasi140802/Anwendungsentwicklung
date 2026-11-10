@@ -323,6 +323,17 @@ def my_bookings(db: Session, user: User, now: datetime | None = None):
     return upcoming, past
 
 
+def upcoming_in_club(db: Session, member: Membership, now: datetime) -> list[Booking]:
+    """Kommende eigene Buchungen in einem Verein, für die Statuszeile im Kalender."""
+    return db.scalars(
+        select(Booking)
+        .where(Booking.user_id == member.user_id, Booking.club_id == member.club_id,
+               Booking.status == BookingStatus.CONFIRMED, Booking.start_at > now)
+        .options(selectinload(Booking.court))
+        .order_by(Booking.start_at)
+    ).all()
+
+
 # --- Wochenansicht (FA-04) -------------------------------------------------------
 
 @dataclass
@@ -413,6 +424,10 @@ def _day_cells(club, court, day, hours, now, last_day, member, bookings, blocks)
     dazwischen freie Startzeiten im 30-Minuten-Raster."""
     day_open, day_close = day_bounds(day, hours)
     shortest = durations_of(court)[0]
+    # nur Einträge dieses Tages prüfen (die Wochenliste ist bis zu siebenmal länger)
+    bookings = [b for b in bookings if b.start_at < day_close and b.end_at > day_open]
+    blocks = [k for k in blocks if k.start_at < day_close and k.end_at > day_open]
+    taken = [*bookings, *blocks]
     cells: list[Cell] = []
     t = day_open
     step = timedelta(minutes=GRID_MINUTES)
@@ -434,13 +449,15 @@ def _day_cells(club, court, day, hours, now, last_day, member, bookings, blocks)
             cells.append(Cell(court, s, e, "blocked", blk.reason, is_past=s <= now))
             t = e
             continue
+        if t <= now:
+            cells.append(Cell(court, t, t + step, "past", is_past=True))
+            t = t + step
+            continue
         price = court_price(club, court, t, shortest)
         fits = t + timedelta(minutes=shortest) <= day_close and not any(
             x.start_at < t + timedelta(minutes=shortest) and x.end_at > t
-            for x in [*bookings, *blocks])
-        if t <= now:
-            cells.append(Cell(court, t, t + step, "past", is_past=True))
-        elif not fits:
+            for x in taken)
+        if not fits:
             cells.append(Cell(court, t, t + step, "short"))
         elif t.date() > last_day:
             cells.append(Cell(court, t, t + step, "later", price_cents=price))

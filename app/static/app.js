@@ -11,7 +11,13 @@
       t.setAttribute("aria-selected", on ? "true" : "false");
       t.tabIndex = on ? 0 : -1;
       var panel = document.getElementById(t.getAttribute("aria-controls"));
-      if (panel) panel.hidden = !on;
+      if (!panel) return;
+      panel.hidden = !on;
+      if (on && panel.dataset.src && window.htmx) {  // Tag erst bei Bedarf laden
+        var src = panel.dataset.src;
+        delete panel.dataset.src;
+        htmx.ajax("GET", src, { target: panel, swap: "innerHTML" });
+      }
     });
     if (focus) tab.focus();
     var url = new URL(window.location.href);
