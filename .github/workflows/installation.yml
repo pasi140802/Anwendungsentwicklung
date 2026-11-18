@@ -26,12 +26,11 @@ jobs:
     defaults:
       run:
         shell: pwsh
-        working-directory: ${{ runner.temp }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: abgabe-zip
-          path: ${{ runner.temp }}
+          path: .
       - name: ZIP entpacken
         run: Expand-Archive courtslot.zip -DestinationPath .
       - name: "Schritt 1: Python 3.13 von python.org (Installer wie in der Anleitung)"
@@ -48,14 +47,14 @@ jobs:
           PGPASSWORD: geheim
         run: '& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -c "CREATE DATABASE courtslot"'
       - name: "Schritte 4 bis 6: Umgebung, Pakete, Demo-Daten"
-        working-directory: ${{ runner.temp }}/CourtSlot
+        working-directory: CourtSlot
         run: |
           py -3.13 -m venv .venv
           .venv\Scripts\python -m pip install -r requirements.txt
           $env:DATABASE_URL = "postgresql+psycopg://postgres:geheim@localhost:5432/courtslot"
           .venv\Scripts\python -m scripts.seed
       - name: "Schritt 7: Anwendung starten und Selbsttest"
-        working-directory: ${{ runner.temp }}/CourtSlot
+        working-directory: CourtSlot
         run: |
           $env:DATABASE_URL = "postgresql+psycopg://postgres:geheim@localhost:5432/courtslot"
           $app = Start-Process .venv\Scripts\python -ArgumentList "-m uvicorn app.main:app --port 8000" -PassThru -RedirectStandardOutput app.log -RedirectStandardError app.err
@@ -68,14 +67,11 @@ jobs:
   macos:
     needs: zip
     runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: ${{ runner.temp }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: abgabe-zip
-          path: ${{ runner.temp }}
+          path: .
       - name: ZIP entpacken
         run: unzip -q courtslot.zip
       - name: "Schritt 2: Python und PostgreSQL über Homebrew"
@@ -86,14 +82,14 @@ jobs:
       - name: "Schritt 3: Datenbank anlegen"
         run: '"$(brew --prefix postgresql@16)/bin/createdb" courtslot'
       - name: "Schritte 4 bis 6: Umgebung, Pakete, Demo-Daten"
-        working-directory: ${{ runner.temp }}/CourtSlot
+        working-directory: CourtSlot
         run: |
           python3.13 -m venv .venv
           .venv/bin/python -m pip install -r requirements.txt
           export DATABASE_URL="postgresql+psycopg://$(whoami)@localhost:5432/courtslot"
           .venv/bin/python -m scripts.seed
       - name: "Schritt 7: Anwendung starten und Selbsttest"
-        working-directory: ${{ runner.temp }}/CourtSlot
+        working-directory: CourtSlot
         run: |
           export DATABASE_URL="postgresql+psycopg://$(whoami)@localhost:5432/courtslot"
           .venv/bin/python -m uvicorn app.main:app --port 8000 > app.log 2>&1 &
@@ -102,14 +98,11 @@ jobs:
   linux:
     needs: zip
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: ${{ runner.temp }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: abgabe-zip
-          path: ${{ runner.temp }}
+          path: .
       - name: ZIP entpacken
         run: unzip -q courtslot.zip
       - name: "Schritt 1: Python und PostgreSQL aus den Paketquellen"
@@ -123,14 +116,14 @@ jobs:
           sudo -u postgres psql -c "CREATE USER courtslot WITH PASSWORD 'courtslot'"
           sudo -u postgres createdb -O courtslot courtslot
       - name: "Schritte 3 bis 5: Umgebung, Pakete, Demo-Daten"
-        working-directory: ${{ runner.temp }}/CourtSlot
+        working-directory: CourtSlot
         run: |
           python3 -m venv .venv
           .venv/bin/python -m pip install -r requirements.txt
           export DATABASE_URL="postgresql+psycopg://courtslot:courtslot@localhost:5432/courtslot"
           .venv/bin/python -m scripts.seed
       - name: "Schritt 6: Anwendung starten und Selbsttest"
-        working-directory: ${{ runner.temp }}/CourtSlot
+        working-directory: CourtSlot
         run: |
           export DATABASE_URL="postgresql+psycopg://courtslot:courtslot@localhost:5432/courtslot"
           .venv/bin/python -m uvicorn app.main:app --port 8000 > app.log 2>&1 &
@@ -139,21 +132,18 @@ jobs:
   docker:
     needs: zip
     runs-on: ubuntu-24.04
-    defaults:
-      run:
-        working-directory: ${{ runner.temp }}
     steps:
       - uses: actions/download-artifact@v4
         with:
           name: abgabe-zip
-          path: ${{ runner.temp }}
+          path: .
       - name: ZIP entpacken
         run: unzip -q courtslot.zip
       - name: "Weg A: docker compose up --build"
-        working-directory: ${{ runner.temp }}/CourtSlot
+        working-directory: CourtSlot
         run: docker compose up --build -d
       - name: Selbsttest im Container
-        working-directory: ${{ runner.temp }}/CourtSlot
+        working-directory: CourtSlot
         run: docker compose exec -T app python -m scripts.selbsttest || { docker compose logs --tail 50; exit 1; }
       - name: Buchungsmail in Mailpit angekommen
         run: |
