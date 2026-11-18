@@ -180,7 +180,16 @@ Am Ende steht `Selbsttest bestanden`, sonst eine Meldung, woran es hakt.
 
 ## Getestet
 
-Die Schritte für Weg B laufen bei jeder Änderung automatisch auf frischen Rechnern unter Windows, macOS und Ubuntu 24.04, Weg A unter Ubuntu mit Docker. Getestet wird jeweils aus dem entpackten Abgabe-ZIP, am Ende läuft der Selbsttest (Workflow `.github/workflows/installation.yml`).
+Die Schritte laufen bei jeder Änderung automatisch auf frischen Rechnern, jeweils aus dem entpackten Abgabe-ZIP und mit dem Selbsttest am Ende (Workflow `.github/workflows/installation.yml`). Letzter Lauf am 18.11.2026:
+
+| Weg | System | Ergebnis |
+| --- | --- | --- |
+| B | Windows Server 2025, Python 3.13, PostgreSQL 16 (EDB) | bestanden |
+| B | macOS 26 (Apple Silicon), Python 3.13 und PostgreSQL 16 aus Homebrew | bestanden |
+| B | Ubuntu 24.04, Python 3.12 und PostgreSQL 16 aus den Paketquellen | bestanden |
+| A | Ubuntu 24.04 mit Docker Engine | bestanden, Buchungsmail in Mailpit angekommen |
+
+Docker Desktop unter Windows und macOS ist auf diesen Rechnern nicht verfügbar und wird von Hand getestet.
 
 ## Tests (optional)
 
