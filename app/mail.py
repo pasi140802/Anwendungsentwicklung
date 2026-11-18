@@ -7,6 +7,7 @@ Textteil im Terminal ausgegeben, damit Bestätigungslinks lokal nutzbar sind
 
 import logging
 import smtplib
+import sys
 from email.message import EmailMessage
 from email.utils import make_msgid
 
@@ -37,8 +38,13 @@ def deliver(msg: EmailMessage) -> None:
     if not config.SMTP_HOST:
         OUTBOX.append(msg)
         body = msg.get_body(preferencelist=("plain",)).get_content()
-        print(f"\n----- Mail an {msg['To']}: {msg['Subject']} -----\n{body}"
-              f"----- Ende der Mail -----\n", flush=True)
+        text = (f"\n----- Mail an {msg['To']}: {msg['Subject']} -----\n{body}"
+                "----- Ende der Mail -----\n")
+        try:
+            print(text, flush=True)
+        except UnicodeEncodeError:  # Konsole ohne UTF-8 (z. B. umgeleitete Ausgabe unter Windows)
+            enc = sys.stdout.encoding or "ascii"
+            print(text.encode(enc, "replace").decode(enc), flush=True)
         return
     try:
         with smtplib.SMTP(config.SMTP_HOST, config.SMTP_PORT, timeout=15) as smtp:

@@ -1,0 +1,162 @@
+# Prüft die Installationsanleitung (INSTALLATION.md) auf frischen Rechnern:
+# Weg B ohne Docker unter Windows, macOS und Ubuntu, Weg A mit Docker unter Ubuntu.
+# Getestet wird aus dem entpackten Abgabe-ZIP, am Ende läuft scripts/selbsttest.py.
+name: Installation
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Abgabe-ZIP erzeugen
+        run: python3 -m scripts.abgabe_zip --ziel out && mv out/*.zip courtslot.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: abgabe-zip
+          path: courtslot.zip
+
+  windows:
+    needs: zip
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: abgabe-zip
+          path: ${{ runner.temp }}
+      - name: ZIP entpacken
+        run: Expand-Archive courtslot.zip -DestinationPath .
+      - name: "Schritt 1: Python 3.13 von python.org (Installer wie in der Anleitung)"
+        run: |
+          Invoke-WebRequest https://www.python.org/ftp/python/3.13.1/python-3.13.1-amd64.exe -OutFile python.exe
+          Start-Process python.exe -Wait -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1 Include_launcher=1"
+          py -3.13 --version
+      - name: "Schritt 2: PostgreSQL 16 (Installer von EDB über Chocolatey)"
+        run: |
+          Get-Service postgresql* -ErrorAction SilentlyContinue | Stop-Service -ErrorAction SilentlyContinue
+          choco install postgresql16 --params "/Password:geheim /Port:5432" -y --no-progress
+      - name: "Schritt 3: Datenbank anlegen"
+        env:
+          PGPASSWORD: geheim
+        run: '& "C:\Program Files\PostgreSQL\16\bin\psql.exe" -U postgres -c "CREATE DATABASE courtslot"'
+      - name: "Schritte 4 bis 6: Umgebung, Pakete, Demo-Daten"
+        working-directory: ${{ runner.temp }}/CourtSlot
+        run: |
+          py -3.13 -m venv .venv
+          .venv\Scripts\python -m pip install -r requirements.txt
+          $env:DATABASE_URL = "postgresql+psycopg://postgres:geheim@localhost:5432/courtslot"
+          .venv\Scripts\python -m scripts.seed
+      - name: "Schritt 7: Anwendung starten und Selbsttest"
+        working-directory: ${{ runner.temp }}/CourtSlot
+        run: |
+          $env:DATABASE_URL = "postgresql+psycopg://postgres:geheim@localhost:5432/courtslot"
+          $app = Start-Process .venv\Scripts\python -ArgumentList "-m uvicorn app.main:app --port 8000" -PassThru -RedirectStandardOutput app.log -RedirectStandardError app.err
+          .venv\Scripts\python -m scripts.selbsttest
+          $rc = $LASTEXITCODE
+          Stop-Process -Id $app.Id
+          Get-Content app.err -Tail 30
+          exit $rc
+
+  macos:
+    needs: zip
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: ${{ runner.temp }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: abgabe-zip
+          path: ${{ runner.temp }}
+      - name: ZIP entpacken
+        run: unzip -q courtslot.zip
+      - name: "Schritt 2: Python und PostgreSQL über Homebrew"
+        run: |
+          brew install python@3.13 postgresql@16
+          brew services start postgresql@16
+          sleep 5
+      - name: "Schritt 3: Datenbank anlegen"
+        run: '"$(brew --prefix postgresql@16)/bin/createdb" courtslot'
+      - name: "Schritte 4 bis 6: Umgebung, Pakete, Demo-Daten"
+        working-directory: ${{ runner.temp }}/CourtSlot
+        run: |
+          python3.13 -m venv .venv
+          .venv/bin/python -m pip install -r requirements.txt
+          export DATABASE_URL="postgresql+psycopg://$(whoami)@localhost:5432/courtslot"
+          .venv/bin/python -m scripts.seed
+      - name: "Schritt 7: Anwendung starten und Selbsttest"
+        working-directory: ${{ runner.temp }}/CourtSlot
+        run: |
+          export DATABASE_URL="postgresql+psycopg://$(whoami)@localhost:5432/courtslot"
+          .venv/bin/python -m uvicorn app.main:app --port 8000 > app.log 2>&1 &
+          .venv/bin/python -m scripts.selbsttest || { tail -30 app.log; exit 1; }
+
+  linux:
+    needs: zip
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ${{ runner.temp }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: abgabe-zip
+          path: ${{ runner.temp }}
+      - name: ZIP entpacken
+        run: unzip -q courtslot.zip
+      - name: "Schritt 1: Python und PostgreSQL aus den Paketquellen"
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q python3 python3-venv postgresql
+          sudo systemctl start postgresql
+          python3 --version
+      - name: "Schritt 2: Benutzer und Datenbank anlegen"
+        run: |
+          sudo -u postgres psql -c "CREATE USER courtslot WITH PASSWORD 'courtslot'"
+          sudo -u postgres createdb -O courtslot courtslot
+      - name: "Schritte 3 bis 5: Umgebung, Pakete, Demo-Daten"
+        working-directory: ${{ runner.temp }}/CourtSlot
+        run: |
+          python3 -m venv .venv
+          .venv/bin/python -m pip install -r requirements.txt
+          export DATABASE_URL="postgresql+psycopg://courtslot:courtslot@localhost:5432/courtslot"
+          .venv/bin/python -m scripts.seed
+      - name: "Schritt 6: Anwendung starten und Selbsttest"
+        working-directory: ${{ runner.temp }}/CourtSlot
+        run: |
+          export DATABASE_URL="postgresql+psycopg://courtslot:courtslot@localhost:5432/courtslot"
+          .venv/bin/python -m uvicorn app.main:app --port 8000 > app.log 2>&1 &
+          .venv/bin/python -m scripts.selbsttest || { tail -30 app.log; exit 1; }
+
+  docker:
+    needs: zip
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: ${{ runner.temp }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: abgabe-zip
+          path: ${{ runner.temp }}
+      - name: ZIP entpacken
+        run: unzip -q courtslot.zip
+      - name: "Weg A: docker compose up --build"
+        working-directory: ${{ runner.temp }}/CourtSlot
+        run: docker compose up --build -d
+      - name: Selbsttest im Container
+        working-directory: ${{ runner.temp }}/CourtSlot
+        run: docker compose exec -T app python -m scripts.selbsttest || { docker compose logs --tail 50; exit 1; }
+      - name: Buchungsmail in Mailpit angekommen
+        run: |
+          total=$(curl -s http://localhost:8025/api/v1/messages | python3 -c "import json,sys; print(json.load(sys.stdin)['total'])")
+          echo "Mails in Mailpit: $total"
+          test "$total" -ge 1
